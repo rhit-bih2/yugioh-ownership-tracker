@@ -92,6 +92,8 @@ public class MainFrame extends JFrame {
         navGroup.add(navButton("Card Library", AppNavigator.PAGE_LIBRARY));
         side.add(navGroup);
         side.add(Box.createVerticalGlue());
+        side.add(buildLogoutButton());
+        side.add(Box.createVerticalStrut(8));
 
         return side;
     }
@@ -147,4 +149,28 @@ public class MainFrame extends JFrame {
         btn.setForeground(Color.WHITE);
         btn.setBackground(new Color(77, 98, 180));
     }
+    
+    private JButton buildLogoutButton() {
+        JButton logout = new JButton("Log Out");
+        logout.setHorizontalAlignment(SwingConstants.CENTER);
+        logout.setAlignmentX(JButton.CENTER_ALIGNMENT);
+        logout.setMaximumSize(new Dimension(186, 34));
+        logout.setFocusPainted(false);
+        logout.setForeground(Theme.DANGER);
+        logout.setBackground(new Color(91, 45, 63));
+        logout.setOpaque(true);
+        logout.setBorderPainted(true);
+        logout.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.DANGER),
+                new EmptyBorder(6, 12, 6, 12)
+        ));
+        logout.setFont(Theme.FONT_BOLD);
+        logout.setRolloverEnabled(false);
+        logout.addActionListener(e -> {
+        	MainFrame.dbService.disconnect();
+            dispose();
+        });
+        return logout;
+    }
+
 }
