@@ -185,22 +185,6 @@ public class CollectionService {
 		}
 	}
 	
-//	public String getCardNameFromID(int cardID) {
-//		try {
-//			CallableStatement stmt = dbService.getConnection().prepareCall("{call GetCardNameFromID(?)}");
-//			stmt.setInt(1, cardID);
-//			ResultSet rs = stmt.executeQuery();
-//			rs.next();
-//			return rs.getString("Name");
-//		}
-//		catch (SQLException ex) {
-//			JOptionPane.showMessageDialog(null, "Failed to retrieve collection name");
-//			ex.printStackTrace();
-//			return "";
-//		}
-//		
-//	}
-	
 	public boolean addCardIntoCollection(int collectionID, int cardID, int quantity) {
 		try {
 			CallableStatement stmt = dbService.getConnection().prepareCall("{call AddCardIntoCollection(?, ?, ?)}");

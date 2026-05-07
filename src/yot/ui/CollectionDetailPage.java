@@ -24,7 +24,7 @@ public class CollectionDetailPage extends JPanel {
     private int currentCollectionID = -1;
     private String currentCollectionName = "All Cards";
 
-    public CollectionDetailPage(Runnable onBack, DatabaseConnectionService dbService) {
+    public CollectionDetailPage(Runnable onBack, DatabaseConnectionService dbService, String username) {
     	this.collectionService = new CollectionService(dbService);
         JPanel page = UiFactory.pageContainer();
         
