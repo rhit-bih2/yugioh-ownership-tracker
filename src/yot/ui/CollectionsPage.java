@@ -2,18 +2,36 @@ package yot.ui;
 
 import java.awt.Color;
 import java.awt.Dimension;
-import java.util.function.Consumer;
+import java.util.ArrayList;
+import java.util.function.BiConsumer;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 
+import yot.services.CollectionService;
+import yot.services.DatabaseConnectionService;
+
+
+
 public class CollectionsPage extends JPanel {
-    public CollectionsPage(Consumer<String> onOpenDetail) {
+	private final CollectionService collectionService;
+	private final BiConsumer<Integer, String> onOpenDetail;
+	private final String username;
+	private final int userId;
+	private final JPanel list;
+
+    public CollectionsPage(BiConsumer<Integer, String> onOpenDetail, DatabaseConnectionService dbService, String username) {
+    	this.onOpenDetail = onOpenDetail;
+    	this.username = username;
+        this.collectionService = new CollectionService(dbService);
+        this.userId = collectionService.getUserID(username);
+
         JPanel page = UiFactory.pageContainer();
 
         page.add(UiFactory.pageHeader("Your Collections", "Create, edit, or delete your own collections."));
@@ -29,55 +47,56 @@ public class CollectionsPage extends JPanel {
         JTextField name = UiFactory.input("Collection name");
         createRow.add(name);
         createRow.add(Box.createHorizontalStrut(8));
-        createRow.add(UiFactory.primaryButton("Create"));
+        
+        
+        JButton createCollectionButton = UiFactory.primaryButton("Create");
+        createRow.add(createCollectionButton);
+        createCollectionButton.addActionListener(e -> {
+        	String collectionName = name.getText().trim();
+        	if (collectionName.isEmpty()) {
+        		JOptionPane.showMessageDialog(this, "Collection name is required.");
+        		return;
+        	}
+        	if (collectionService.createCollection(userId, collectionName)) {
+        		name.setText("");
+        		reloadCollections();
+        	}
+        });
+
         create.add(createRow);
         page.add(Box.createVerticalStrut(14));
         page.add(create);
 
-        JPanel list = UiFactory.panelCard();
+        list = UiFactory.panelCard();
         list.setLayout(new BoxLayout(list, BoxLayout.Y_AXIS));
         list.setBorder(new EmptyBorder(16, 16, 16, 16));
-        list.add(UiFactory.sectionTitle("Existing Collections"));
-        list.add(Box.createVerticalStrut(10));
-        list.add(collectionItem("All Cards", "Default collection with all owned cards", true, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Water Deck", "12 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
-        list.add(collectionItem("Dragon Showcase", "7 cards", false, onOpenDetail));
-        list.add(Box.createVerticalStrut(8));
         page.add(Box.createVerticalStrut(14));
         page.add(list);
+        reloadCollections();
 
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setOpaque(false);
         add(UiFactory.scrollWrap(page));
     }
+    
+    private void reloadCollections() {
+    	list.removeAll();
+    	list.add(UiFactory.sectionTitle("Existing Collections"));
+    	list.add(Box.createVerticalStrut(10));
+    	list.add(collectionItem("All Cards", "Default collection with all owned cards", true, -1));
+    	list.add(Box.createVerticalStrut(8));
 
-    private JPanel collectionItem(String name, String meta, boolean isDefault, Consumer<String> onOpenDetail) {
+    	ArrayList<Integer> collectionIDs = collectionService.getCollectionIDs(userId);
+    	for (int id : collectionIDs) {
+    		list.add(collectionItem(collectionService.getCollectionName(id), "To be implemented...", false, id));
+    		list.add(Box.createVerticalStrut(8));
+    	}
+
+    	list.revalidate();
+    	list.repaint();
+    }
+
+    private JPanel collectionItem(String name, String meta, boolean isDefault, int collectionID) {
         JPanel item = new JPanel();
         item.setBackground(new Color(35, 45, 80));
         item.setBorder(BorderFactory.createCompoundBorder(
@@ -93,7 +112,7 @@ public class CollectionsPage extends JPanel {
         left.setLayout(new BoxLayout(left, BoxLayout.Y_AXIS));
         left.setAlignmentX(LEFT_ALIGNMENT);
         JButton nameBtn = UiFactory.linkButton(name);
-        nameBtn.addActionListener(e -> onOpenDetail.accept(name));
+        nameBtn.addActionListener(e -> onOpenDetail.accept(collectionID, name));
         JLabel metaLabel = new JLabel(meta);
         metaLabel.setForeground(Theme.MUTED);
         left.add(nameBtn);
@@ -102,11 +121,28 @@ public class CollectionsPage extends JPanel {
 
         item.add(left);
         item.add(Box.createHorizontalGlue());
-        item.add(UiFactory.outlineButton("Edit"));
+        JButton editBtn = UiFactory.outlineButton("Edit");
+        editBtn.addActionListener(e -> {
+        	String updatedName = JOptionPane.showInputDialog(this, "Enter new collection name:");
+        	if (updatedName == null || updatedName.trim().isEmpty()) {
+        		return;
+        	}
+        	if (collectionService.updateCollectionName(collectionID, updatedName.trim())) {
+        		reloadCollections();
+        	}
+        });
+        item.add(editBtn);
         if (!isDefault) {
             item.add(Box.createHorizontalStrut(6));
-            item.add(UiFactory.dangerButton("Delete"));
+            JButton deleteBtn = UiFactory.dangerButton("Delete");
+            deleteBtn.addActionListener(e -> {
+            	if (collectionService.deleteCollection(collectionID)) {
+            		reloadCollections();
+            	}
+            });
+            item.add(deleteBtn);
         }
         return item;
     }
+    
 }

@@ -3,7 +3,7 @@ package yot.ui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.GridBagLayout;
+import java.util.ArrayList;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -13,11 +13,21 @@ import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
+import yot.services.CollectionService;
+import yot.services.CollectionService.CollectionCard;
+import yot.services.DatabaseConnectionService;
+
 public class CollectionDetailPage extends JPanel {
     private final JLabel titleLabel;
+    private final CollectionService collectionService;
+    private final JPanel cardsPanel;
+    private int currentCollectionID = -1;
+    private String currentCollectionName = "All Cards";
 
-    public CollectionDetailPage(Runnable onBack) {
+    public CollectionDetailPage(Runnable onBack, DatabaseConnectionService dbService) {
+    	this.collectionService = new CollectionService(dbService);
         JPanel page = UiFactory.pageContainer();
+        
 
         JPanel top = UiFactory.rowPanel();
         top.setAlignmentX(LEFT_ALIGNMENT);
@@ -55,36 +65,48 @@ public class CollectionDetailPage extends JPanel {
         page.add(Box.createVerticalStrut(14));
         page.add(addCard);
 
-        JPanel cards = UiFactory.panelCard();
-        cards.setLayout(new BoxLayout(cards, BoxLayout.Y_AXIS));
-        cards.setBorder(new EmptyBorder(16, 16, 16, 16));
-        cards.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1600));
-        cards.add(UiFactory.sectionTitle("Cards in Collection"));
-        cards.add(Box.createVerticalStrut(10));
-        cards.add(cardTile("Blue-Eyes White Dragon"));
-        cards.add(Box.createVerticalStrut(8));
-        cards.add(cardTile("Dark Magician"));
-        cards.add(Box.createVerticalStrut(8));
-        cards.add(cardTile("Charizard VMAX"));
-        cards.add(Box.createVerticalStrut(8));
-        cards.add(cardTile("Pikachu EX"));
-        cards.add(Box.createVerticalStrut(8));
-        cards.add(cardTile("Ancient Mew"));
-        cards.add(Box.createVerticalStrut(8));
-        cards.add(cardTile("Red-Eyes Black Dragon"));
+        cardsPanel = UiFactory.panelCard();
+        cardsPanel.setLayout(new BoxLayout(cardsPanel, BoxLayout.Y_AXIS));
+        cardsPanel.setBorder(new EmptyBorder(16, 16, 16, 16));
+        cardsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1600));
+        rebuildCards(new ArrayList<CollectionCard>());
         page.add(Box.createVerticalStrut(14));
-        page.add(cards);
+        page.add(cardsPanel);
 
         setLayout(new BorderLayout());
         setOpaque(false);
         add(UiFactory.scrollWrap(page), BorderLayout.CENTER);
     }
 
-    public void setCollectionName(String collectionName) {
+    public void showCollection(int collectionID, String collectionName) {
+    	currentCollectionID = collectionID;
+    	currentCollectionName = collectionName;
         titleLabel.setText("Collection: " + collectionName);
+        ArrayList<CollectionCard> cards = collectionID < 0
+                ? new ArrayList<CollectionCard>()
+                : collectionService.getCollectionCardEntries(collectionID);
+        rebuildCards(cards);
     }
 
-    private JPanel cardTile(String name) {
+    private void rebuildCards(ArrayList<CollectionCard> cards) {
+    	cardsPanel.removeAll();
+    	cardsPanel.add(UiFactory.sectionTitle("Cards in Collection"));
+    	cardsPanel.add(Box.createVerticalStrut(10));
+    	if (cards.isEmpty()) {
+    		JLabel empty = new JLabel("No cards in this collection yet.");
+    		empty.setForeground(Theme.MUTED);
+    		cardsPanel.add(empty);
+    	} else {
+    		for (CollectionCard card : cards) {
+    			cardsPanel.add(cardTile(card));
+    			cardsPanel.add(Box.createVerticalStrut(8));
+    		}
+    	}
+    	cardsPanel.revalidate();
+    	cardsPanel.repaint();
+    }
+
+    private JPanel cardTile(CollectionCard card) {
         JPanel tile = new JPanel();
         tile.setBackground(new Color(35, 45, 80));
         tile.setBorder(BorderFactory.createCompoundBorder(
@@ -103,12 +125,22 @@ public class CollectionDetailPage extends JPanel {
         JPanel right = new JPanel();
         right.setOpaque(false);
         right.setLayout(new BoxLayout(right, BoxLayout.Y_AXIS));
-        JLabel cardName = new JLabel(name);
+        JLabel cardName = new JLabel(card.getName());
         cardName.setForeground(Theme.TEXT);
         cardName.setFont(Theme.FONT_BOLD);
         right.add(cardName);
         right.add(Box.createVerticalStrut(8));
-        right.add(UiFactory.dangerButton("Remove"));
+
+        JButton removeBtn = UiFactory.dangerButton("Remove");
+        removeBtn.addActionListener(e -> {
+        	if (currentCollectionID < 0) {
+        		return;
+        	}
+        	if (collectionService.deleteCardFromCollection(currentCollectionID, card.getId())) {
+        		showCollection(currentCollectionID, currentCollectionName);
+        	}
+        });
+        right.add(removeBtn);
 
         tile.add(image);
         tile.add(Box.createHorizontalStrut(12));
