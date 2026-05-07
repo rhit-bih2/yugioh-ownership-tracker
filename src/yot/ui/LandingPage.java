@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -26,11 +27,12 @@ public class LandingPage extends JPanel {
 	private static String serverUsername = null;
 	private static String serverPassword = null;
 	private static DatabaseConnectionService dbService = null;
+	private static String username;
 	private static EncryptionService es = new EncryptionService();
 	private static UserService userService;
-	private static Runnable loginFn;
+	private static Consumer<String> loginFn;
 	
-    public LandingPage(Runnable onLogin) {
+    public LandingPage(Consumer<String> onLogin) {
     	Properties props = loadProperties();
     	serverUsername = props.getProperty("serverUsername");
 		serverPassword = props.getProperty("serverPassword");
@@ -106,7 +108,8 @@ public class LandingPage extends JPanel {
     
     private void login(String username, String password) {
     	if (userService.login(username, password)) {
-    		loginFn.run();
+    		LandingPage.username = username;
+    		loginFn.accept(username);
 		} else {
 			System.out.println("Invalid username or password");
 		}
@@ -114,7 +117,8 @@ public class LandingPage extends JPanel {
     
     private void register(String username, String password) {
     	if (userService.register(username, password)) {
-    		loginFn.run();
+    		LandingPage.username = username;
+    		loginFn.accept(username);
 		} else {
 			System.out.println("Invalid username");
 		}
@@ -150,4 +154,12 @@ public class LandingPage extends JPanel {
 		}
 		return props;
 	}
+    
+    public DatabaseConnectionService getdbService() {
+    	return LandingPage.dbService;
+    }
+    
+    public String getUsername() {
+    	return LandingPage.username;
+    }
 }

@@ -17,13 +17,18 @@ import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
+import yot.services.DatabaseConnectionService;
+
 public class MainFrame extends JFrame {
     private static final String PAGE_LANDING = "landing";
+    private static final String PAGE_APP = "app";
 
     private final CardLayout rootLayout = new CardLayout();
     private final JPanel rootPanel = new JPanel(rootLayout);
-    private final AppNavigator navigator;
+    private AppNavigator navigator;
     private final List<JButton> navButtons = new ArrayList<>();
+    
+    private static DatabaseConnectionService dbService = null;
 
     public MainFrame() {
         super("Yugioh Card Ownership Tracker");
@@ -31,15 +36,22 @@ public class MainFrame extends JFrame {
         setSize(1240, 780);
         setLocationRelativeTo(null);
 
-        CardLayout appLayout = new CardLayout();
-        JPanel appContentPanel = new JPanel(appLayout);
-        navigator = new AppNavigator(appLayout, appContentPanel, this::updateNavActive);
-
         rootPanel.setBackground(Theme.BG);
-        rootPanel.add(new LandingPage(() -> showAppPage(AppNavigator.PAGE_COLLECTIONS)), PAGE_LANDING);
-        rootPanel.add(buildAppShell(navigator.getView()), "app");
+        
+        LandingPage landingPage = new LandingPage(this::onLoginSuccess);
+        MainFrame.dbService = landingPage.getdbService();
+        rootPanel.add(landingPage, PAGE_LANDING);
         setContentPane(rootPanel);
         showLanding();
+    }
+
+    private void onLoginSuccess(String username) {
+        CardLayout appLayout = new CardLayout();
+        JPanel appContentPanel = new JPanel(appLayout);
+        navigator = new AppNavigator(appLayout, appContentPanel, this::updateNavActive, dbService, username);
+
+        rootPanel.add(buildAppShell(navigator.getView()), PAGE_APP);
+        showAppPage(AppNavigator.PAGE_COLLECTIONS);
     }
 
     private JPanel buildAppShell(java.awt.Component content) {
@@ -109,7 +121,11 @@ public class MainFrame extends JFrame {
     }
 
     private void showAppPage(String pageId) {
-        rootLayout.show(rootPanel, "app");
+        if (navigator == null) {
+            showLanding();
+            return;
+        }
+        rootLayout.show(rootPanel, PAGE_APP);
         navigator.show(pageId);
     }
 

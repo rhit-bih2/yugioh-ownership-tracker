@@ -40,9 +40,9 @@ public class UserService {
 			String hash = rs.getString("PasswordHash");
 			if(hashPassword(salt, password).equals(hash)) return true;
 		} catch (SQLException e) {
-			JOptionPane.showMessageDialog(null, "Login Failed");
 			e.printStackTrace();
 		}
+		JOptionPane.showMessageDialog(null, "Login Failed");
 		return false;
 	}
 

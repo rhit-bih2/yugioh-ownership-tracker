@@ -5,6 +5,8 @@ import java.awt.Component;
 import java.util.function.Consumer;
 import javax.swing.JPanel;
 
+import yot.services.DatabaseConnectionService;
+
 public class AppNavigator {
     public static final String PAGE_COLLECTIONS = "collections";
     public static final String PAGE_DETAIL = "detail";
@@ -16,13 +18,13 @@ public class AppNavigator {
     private final CollectionDetailPage detailPage;
     private final Consumer<String> onPageChanged;
 
-    public AppNavigator(CardLayout layout, JPanel container, Consumer<String> onPageChanged) {
+    public AppNavigator(CardLayout layout, JPanel container, Consumer<String> onPageChanged, DatabaseConnectionService dbService, String username) {
         this.layout = layout;
         this.container = container;
         this.onPageChanged = onPageChanged;
 
-        detailPage = new CollectionDetailPage(() -> show(PAGE_COLLECTIONS));
-        container.add(new CollectionsPage(this::openCollectionDetail), PAGE_COLLECTIONS);
+        detailPage = new CollectionDetailPage(() -> show(PAGE_COLLECTIONS), dbService);
+        container.add(new CollectionsPage(this::openCollectionDetail, dbService, username), PAGE_COLLECTIONS);
         container.add(detailPage, PAGE_DETAIL);
         container.add(new PlaceholderPage("Trade", "Trade workflow content will be added later."), PAGE_TRADE);
         container.add(new PlaceholderPage("Card Library", "Card library content will be implemented later."), PAGE_LIBRARY);
@@ -33,8 +35,8 @@ public class AppNavigator {
         onPageChanged.accept(pageId);
     }
 
-    public void openCollectionDetail(String collectionName) {
-        detailPage.setCollectionName(collectionName);
+    public void openCollectionDetail(Integer collectionID, String collectionName) {
+        detailPage.showCollection(collectionID, collectionName);
         show(PAGE_DETAIL);
     }
 
