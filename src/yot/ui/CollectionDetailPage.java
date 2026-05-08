@@ -98,7 +98,6 @@ public class CollectionDetailPage extends JPanel {
         cardsPanel = UiFactory.panelCard();
         cardsPanel.setLayout(new BoxLayout(cardsPanel, BoxLayout.Y_AXIS));
         cardsPanel.setBorder(new EmptyBorder(16, 16, 16, 16));
-        cardsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1600));
         rebuildCards(new ArrayList<CardRow>());
         page.add(Box.createVerticalStrut(14));
         page.add(cardsPanel);
