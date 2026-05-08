@@ -23,14 +23,12 @@ public class CollectionsPage extends JPanel {
 	private final CollectionService collectionService;
 	private final BiConsumer<Integer, String> onOpenDetail;
 	private final String username;
-	private final int userId;
 	private final JPanel list;
 
     public CollectionsPage(BiConsumer<Integer, String> onOpenDetail, DatabaseConnectionService dbService, String username) {
     	this.onOpenDetail = onOpenDetail;
     	this.username = username;
         this.collectionService = new CollectionService(dbService);
-        this.userId = collectionService.getUserID(username);
 
         JPanel page = UiFactory.pageContainer();
 
@@ -57,7 +55,7 @@ public class CollectionsPage extends JPanel {
         		JOptionPane.showMessageDialog(this, "Collection name is required.");
         		return;
         	}
-        	if (collectionService.createCollection(userId, collectionName)) {
+        	if (collectionService.createCollection(username, collectionName)) {
         		name.setText("");
         		reloadCollections();
         	}
@@ -86,7 +84,7 @@ public class CollectionsPage extends JPanel {
     	list.add(collectionItem("All Cards", "Default collection with all owned cards", true, -1));
     	list.add(Box.createVerticalStrut(8));
 
-    	ArrayList<Integer> collectionIDs = collectionService.getCollectionIDs(userId);
+    	ArrayList<Integer> collectionIDs = collectionService.getCollectionIDs(username);
     	for (int id : collectionIDs) {
     		list.add(collectionItem(collectionService.getCollectionName(id), "To be implemented...", false, id));
     		list.add(Box.createVerticalStrut(8));
@@ -121,22 +119,34 @@ public class CollectionsPage extends JPanel {
 
         item.add(left);
         item.add(Box.createHorizontalGlue());
-        JButton editBtn = UiFactory.outlineButton("Edit");
-        editBtn.addActionListener(e -> {
-        	String updatedName = JOptionPane.showInputDialog(this, "Enter new collection name:");
-        	if (updatedName == null || updatedName.trim().isEmpty()) {
-        		return;
-        	}
-        	if (collectionService.updateCollectionName(collectionID, updatedName.trim())) {
-        		reloadCollections();
-        	}
-        });
-        item.add(editBtn);
+        if (!isDefault) {
+	        JButton editBtn = UiFactory.outlineButton("Edit");
+	        editBtn.addActionListener(e -> {
+	        	String updatedName = JOptionPane.showInputDialog(this, "Enter new collection name:");
+	        	if (updatedName == null || updatedName.trim().isEmpty()) {
+	        		return;
+	        	}
+	        	if (collectionService.updateCollectionName(collectionID, updatedName.trim())) {
+	        		reloadCollections();
+	        	}
+	        });
+	        item.add(editBtn);
+        }
         if (!isDefault) {
             item.add(Box.createHorizontalStrut(6));
             JButton deleteBtn = UiFactory.dangerButton("Delete");
             deleteBtn.addActionListener(e -> {
-            	if (collectionService.deleteCollection(collectionID)) {
+            	int choice = JOptionPane.showOptionDialog(
+            		this,
+            		"Are you sure you want to delete \"" + name + "\"?",
+            		"Delete Collection",
+            		JOptionPane.YES_NO_OPTION,
+            		JOptionPane.WARNING_MESSAGE,
+            		null,
+            		new String[]{"Yes", "No"},
+            		"No"
+            	);
+            	if (choice == JOptionPane.YES_OPTION && collectionService.deleteCollection(collectionID)) {
             		reloadCollections();
             	}
             });

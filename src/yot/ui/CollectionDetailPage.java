@@ -3,12 +3,22 @@ package yot.ui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Image;
+import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
@@ -20,14 +30,43 @@ import yot.services.DatabaseConnectionService;
 public class CollectionDetailPage extends JPanel {
     private final JLabel titleLabel;
     private final CollectionService collectionService;
+    private final DatabaseConnectionService dbService;
     private final JPanel cardsPanel;
+    private final JPanel searchPanelContainer;
     private int currentCollectionID = -1;
     private String currentCollectionName = "All Cards";
+	private final String username;
+	private final Map<Integer, ImageIcon> cardImageCache = new HashMap<Integer, ImageIcon>();
+	
+	private static class CardRow {
+		private final CollectionCard card;
+		private final int quantity;
+		private final boolean allowMutations;
+		
+		private CardRow(CollectionCard card, int quantity, boolean allowMutations) {
+			this.card = card;
+			this.quantity = quantity;
+			this.allowMutations = allowMutations;
+		}
+	}
+	
+	private static class OwnershipEnforcementResult {
+		private final boolean success;
+		private final int affectedCollections;
+		private final int totalDecrements;
+		
+		private OwnershipEnforcementResult(boolean success, int affectedCollections, int totalDecrements) {
+			this.success = success;
+			this.affectedCollections = affectedCollections;
+			this.totalDecrements = totalDecrements;
+		}
+	}
 
     public CollectionDetailPage(Runnable onBack, DatabaseConnectionService dbService, String username) {
+    	this.dbService = dbService;
     	this.collectionService = new CollectionService(dbService);
+    	this.username = username;
         JPanel page = UiFactory.pageContainer();
-        
 
         JPanel top = UiFactory.rowPanel();
         top.setAlignmentX(LEFT_ALIGNMENT);
@@ -50,26 +89,17 @@ public class CollectionDetailPage extends JPanel {
         top.add(back);
         page.add(top);
 
-        JPanel addCard = UiFactory.panelCard();
-        addCard.setLayout(new BoxLayout(addCard, BoxLayout.Y_AXIS));
-        addCard.setBorder(new EmptyBorder(16, 16, 16, 16));
-        addCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
-        addCard.add(UiFactory.sectionTitle("Add Card to Collection"));
-        addCard.add(Box.createVerticalStrut(10));
-        JPanel addRow = UiFactory.rowPanel();
-        addRow.add(UiFactory.input("Card name"));
-        addRow.add(Box.createHorizontalStrut(8));
-        addRow.add(UiFactory.input("Image URL"));
-        addRow.add(Box.createHorizontalStrut(8));
-        addRow.add(UiFactory.primaryButton("Add Card"));
-        page.add(Box.createVerticalStrut(14));
-        page.add(addCard);
+        searchPanelContainer = new JPanel();
+        searchPanelContainer.setOpaque(false);
+        searchPanelContainer.setLayout(new BoxLayout(searchPanelContainer, BoxLayout.Y_AXIS));
+        rebuildSearchPanel();
+        page.add(searchPanelContainer);
 
         cardsPanel = UiFactory.panelCard();
         cardsPanel.setLayout(new BoxLayout(cardsPanel, BoxLayout.Y_AXIS));
         cardsPanel.setBorder(new EmptyBorder(16, 16, 16, 16));
         cardsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1600));
-        rebuildCards(new ArrayList<CollectionCard>());
+        rebuildCards(new ArrayList<CardRow>());
         page.add(Box.createVerticalStrut(14));
         page.add(cardsPanel);
 
@@ -82,23 +112,50 @@ public class CollectionDetailPage extends JPanel {
     	currentCollectionID = collectionID;
     	currentCollectionName = collectionName;
         titleLabel.setText("Collection: " + collectionName);
-        ArrayList<CollectionCard> cards = collectionID < 0
-                ? new ArrayList<CollectionCard>()
-                : collectionService.getCollectionCardEntries(collectionID);
-        rebuildCards(cards);
+        rebuildSearchPanel();
+        
+        ArrayList<CardRow> rows = new ArrayList<CardRow>();
+        if (collectionID < 0) {
+        	// Default "All Cards" view: show all cards the user owns.
+        	for (int cardID : collectionService.getUserCardIDs(username)) {
+        		String cardName = collectionService.getCardNameFromID(cardID);
+        		int quantity = collectionService.getUserCardQuantity(cardID, username);
+        		rows.add(new CardRow(new CollectionCard(cardID, cardName), quantity, true));
+        	}
+        } else {
+        	for (CollectionCard card : collectionService.getCollectionCardEntries(collectionID)) {
+        		int quantity = collectionService.getCollectionCardQuantity(collectionID, card.getId());
+        		rows.add(new CardRow(card, quantity, true));
+        	}
+        }
+        
+        rebuildCards(rows);
+    }
+    
+    private void rebuildSearchPanel() {
+    	searchPanelContainer.removeAll();
+    	CardSearchPanel addCard;
+    	if (currentCollectionID < 0) {
+    		addCard = new CardSearchPanel(this::queryFnForOwned, this::cardFnForOwned, dbService);
+    	} else {
+    		addCard = new CardSearchPanel(this::queryFnForCollection, this::cardFnForCollection, dbService);
+    	}
+    	searchPanelContainer.add(addCard);
+    	searchPanelContainer.revalidate();
+    	searchPanelContainer.repaint();
     }
 
-    private void rebuildCards(ArrayList<CollectionCard> cards) {
+    private void rebuildCards(ArrayList<CardRow> rows) {
     	cardsPanel.removeAll();
     	cardsPanel.add(UiFactory.sectionTitle("Cards in Collection"));
     	cardsPanel.add(Box.createVerticalStrut(10));
-    	if (cards.isEmpty()) {
+    	if (rows.isEmpty()) {
     		JLabel empty = new JLabel("No cards in this collection yet.");
     		empty.setForeground(Theme.MUTED);
     		cardsPanel.add(empty);
     	} else {
-    		for (CollectionCard card : cards) {
-    			cardsPanel.add(cardTile(card));
+    		for (CardRow row : rows) {
+    			cardsPanel.add(cardTile(row));
     			cardsPanel.add(Box.createVerticalStrut(8));
     		}
     	}
@@ -106,7 +163,8 @@ public class CollectionDetailPage extends JPanel {
     	cardsPanel.repaint();
     }
 
-    private JPanel cardTile(CollectionCard card) {
+    private JPanel cardTile(CardRow row) {
+    	CollectionCard card = row.card;
         JPanel tile = new JPanel();
         tile.setBackground(new Color(35, 45, 80));
         tile.setBorder(BorderFactory.createCompoundBorder(
@@ -115,12 +173,7 @@ public class CollectionDetailPage extends JPanel {
         ));
         tile.setLayout(new BoxLayout(tile, BoxLayout.X_AXIS));
 
-        JLabel image = new JLabel("Card Image", SwingConstants.CENTER);
-        image.setOpaque(true);
-        image.setBackground(new Color(32, 42, 79));
-        image.setForeground(Theme.MUTED);
-        image.setPreferredSize(new Dimension(120, 150));
-        image.setMaximumSize(new Dimension(120, 150));
+        JLabel image = buildCardImageLabel(card.getId());
 
         JPanel right = new JPanel();
         right.setOpaque(false);
@@ -130,21 +183,204 @@ public class CollectionDetailPage extends JPanel {
         cardName.setFont(Theme.FONT_BOLD);
         right.add(cardName);
         right.add(Box.createVerticalStrut(8));
+        JLabel quantityLabel = new JLabel("Quantity: " + row.quantity);
+        quantityLabel.setForeground(Theme.MUTED);
+        right.add(quantityLabel);
+        right.add(Box.createVerticalStrut(8));
 
-        JButton removeBtn = UiFactory.dangerButton("Remove");
-        removeBtn.addActionListener(e -> {
-        	if (currentCollectionID < 0) {
-        		return;
-        	}
-        	if (collectionService.deleteCardFromCollection(currentCollectionID, card.getId())) {
-        		showCollection(currentCollectionID, currentCollectionName);
-        	}
-        });
-        right.add(removeBtn);
+        if (row.allowMutations) {
+	        JButton addBtn = UiFactory.primaryButton("Add 1");
+	        addBtn.addActionListener(e -> {
+	        	if (currentCollectionID < 0) {
+	        		if (collectionService.incrementOwnedCard(card.getId(), username)) {
+	        			showCollection(currentCollectionID, currentCollectionName);
+	        		}
+	        		return;
+	        	}
+	        	int collectionQty = collectionService.getCollectionCardQuantity(currentCollectionID, card.getId());
+	        	int ownedQty = collectionService.getUserCardQuantity(card.getId(), username);
+	        	if (collectionQty >= ownedQty) {
+	        		JOptionPane.showMessageDialog(
+	        				this,
+	        				"Cannot add more than the total owned quantity.",
+	        				"Quantity Limit",
+	        				JOptionPane.WARNING_MESSAGE
+	        		);
+	        		return;
+	        	}
+	        	if (collectionService.addCardIntoCollection(currentCollectionID, card.getId(), username)) {
+	        		showCollection(currentCollectionID, currentCollectionName);
+	        	}
+	        });
+	        right.add(addBtn);
+	        right.add(Box.createVerticalStrut(8));
+	
+	        JButton removeBtn = UiFactory.dangerButton("Remove 1");
+	        removeBtn.addActionListener(e -> {
+	        	if (currentCollectionID < 0) {
+	        		int ownedQuantity = collectionService.getUserCardQuantity(card.getId(), username);
+	        		if (ownedQuantity <= 0) {
+	        			return;
+	        		}
+	        		if (ownedQuantity == 1) {
+	        			int choice = JOptionPane.showOptionDialog(
+	        					this,
+	        					"Remove \"" + card.getName() + "\" from All Cards? This will remove the card from any collections it is in.",
+	        					"Remove Card",
+	        					JOptionPane.YES_NO_OPTION,
+	        					JOptionPane.WARNING_MESSAGE,
+	        					null,
+	        					new String[] { "Yes", "No" },
+	        					"No"
+	        			);
+	        			if (choice != JOptionPane.YES_OPTION) {
+	        				return;
+	        			}
+	        		}
+	        		if (!collectionService.decrementOwnedCard(card.getId(), username)) {
+	        			return;
+	        		}
+	        		int newOwnedQuantity = collectionService.getUserCardQuantity(card.getId(), username);
+	        		OwnershipEnforcementResult enforcementResult =
+	        				enforceOwnedQuantityLimitAcrossCollections(card.getId(), newOwnedQuantity);
+	        		if (!enforcementResult.success) {
+	        			return;
+	        		}
+	        		if (enforcementResult.totalDecrements > 0) {
+	        			JOptionPane.showMessageDialog(
+	        					this,
+	        					"Updated " + enforcementResult.affectedCollections + " collection(s) and removed "
+	        							+ enforcementResult.totalDecrements + " extra card entr"
+	        							+ (enforcementResult.totalDecrements == 1 ? "y" : "ies")
+	        							+ " to match your owned quantity.",
+	        					"Collections Updated",
+	        					JOptionPane.INFORMATION_MESSAGE
+	        			);
+	        		}
+	        		showCollection(currentCollectionID, currentCollectionName);
+	        		return;
+	        	}
+	        	
+	        	int quantity = collectionService.getCollectionCardQuantity(currentCollectionID, card.getId());
+	        	boolean shouldDelete = true;
+	        	if (quantity == 1) {
+	        		int choice = JOptionPane.showOptionDialog(
+	        				this,
+	        				"Remove \"" + card.getName() + "\" from the collection?",
+	        				"Remove Card",
+	        				JOptionPane.YES_NO_OPTION,
+	        				JOptionPane.WARNING_MESSAGE,
+	        				null,
+	        				new String[] { "Yes", "No" },
+	        				"No"
+	        		);
+	        		shouldDelete = choice == JOptionPane.YES_OPTION;
+	        	}
+	
+	        	if (!shouldDelete) {
+	        		return;
+	        	}
+	
+	        	if (collectionService.deleteCardFromCollection(currentCollectionID, card.getId())) {
+	        		showCollection(currentCollectionID, currentCollectionName);
+	        	}
+	        });
+	        right.add(removeBtn);
+        }
 
         tile.add(image);
         tile.add(Box.createHorizontalStrut(12));
         tile.add(right);
         return tile;
+    }
+    
+    private JLabel buildCardImageLabel(int cardID) {
+    	JLabel image = new JLabel("Card Image", SwingConstants.CENTER);
+        image.setOpaque(true);
+        image.setBackground(new Color(32, 42, 79));
+        image.setForeground(Theme.MUTED);
+        image.setPreferredSize(new Dimension(120, 150));
+        image.setMaximumSize(new Dimension(120, 150));
+
+        ImageIcon cachedIcon = cardImageCache.get(cardID);
+        if (cachedIcon != null) {
+        	image.setIcon(cachedIcon);
+        	image.setText(null);
+        	return image;
+        }
+
+        String imageUrl = collectionService.getCardImage(cardID);
+        if (imageUrl == null || imageUrl.trim().isEmpty()) {
+        	image.setText("No Image");
+        	return image;
+        }
+
+        try {
+        	Image raw = ImageIO.read(new URL(imageUrl));
+        	if (raw == null) {
+        		image.setText("No Image");
+        		return image;
+        	}
+        	Image scaled = raw.getScaledInstance(120, 150, Image.SCALE_SMOOTH);
+        	ImageIcon icon = new ImageIcon(scaled);
+        	cardImageCache.put(cardID, icon);
+        	image.setIcon(icon);
+        	image.setText(null);
+        } catch (IOException ex) {
+        	image.setText("Image unavailable");
+        }
+
+        return image;
+    }
+    
+    private OwnershipEnforcementResult enforceOwnedQuantityLimitAcrossCollections(int cardID, int ownedQuantity) {
+    	int affectedCollections = 0;
+    	int totalDecrements = 0;
+    	for (int collectionID : collectionService.getCollectionIDs(username)) {
+    		int collectionQuantity = collectionService.getCollectionCardQuantity(collectionID, cardID);
+    		int decrementsForCollection = 0;
+    		while (collectionQuantity > ownedQuantity) {
+    			if (!collectionService.deleteCardFromCollection(collectionID, cardID)) {
+    				return new OwnershipEnforcementResult(false, affectedCollections, totalDecrements);
+    			}
+    			collectionQuantity--;
+    			decrementsForCollection++;
+    		}
+    		if (decrementsForCollection > 0) {
+    			affectedCollections++;
+    			totalDecrements += decrementsForCollection;
+    		}
+    	}
+    	return new OwnershipEnforcementResult(true, affectedCollections, totalDecrements);
+    }
+    
+    public List<Integer> queryFnForCollection(Map<String, String> map) {
+    	//what cards are queried. Should be only cards in the user's collection
+    	ArrayList<Integer> cards = collectionService.getUserCardIDsWithFilter(username, map);
+//    	System.out.println(cards);
+    	return cards;
+    }
+    
+    void cardFnForCollection(int id) {
+    	//What happens when a user clicks on a card image
+    	//add card to collection
+    	if (collectionService.addCardIntoCollection(currentCollectionID, id, username)) {
+    		showCollection(currentCollectionID, currentCollectionName);
+    	}
+    }
+    
+    public List<Integer> queryFnForOwned(Map<String, String> map) {
+    	//what cards are queried. Should be only cards in the user's collection
+    	ArrayList<Integer> cards = collectionService.getCardIDsWithFilter(username, map);
+//    	System.out.println(cards);
+    	return cards;
+    }
+    
+    void cardFnForOwned(int id) {
+    	//What happens when a user clicks on a card image
+    	//add card to collection
+    	if (collectionService.addCardToOwned(id, username)) {
+    		showCollection(currentCollectionID, currentCollectionName);
+    	}
     }
 }
