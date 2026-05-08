@@ -32,7 +32,7 @@ public class AppNavigator {
         container.add(new PlaceholderPage("Card Library", "Card library content will be implemented later."), PAGE_LIBRARY);
         
         // Card Library + Card Detail with their services
-        cardDetailPage = new CardDetailPage(() -> show(PAGE_LIBRARY), dbService);
+        cardDetailPage = new CardDetailPage(() -> show(PAGE_LIBRARY), dbService, username);
         container.add(new CardLibraryPage(this::openCardDetail, dbService), PAGE_LIBRARY);
         container.add(cardDetailPage, PAGE_CARD_DETAIL);
 

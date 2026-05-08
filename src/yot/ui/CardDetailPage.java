@@ -6,6 +6,12 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.io.IOException;
 import java.net.URL;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+
 import javax.imageio.ImageIO;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -17,12 +23,11 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
-import yot.services.CardDetailService;
 import yot.services.DatabaseConnectionService;
 
 public class CardDetailPage extends JPanel {
 
-    private final CardDetailService cardDetailService;
+    
 
     private final JLabel titleLabel;
     private final JLabel idLabel;
@@ -37,10 +42,15 @@ public class CardDetailPage extends JPanel {
     private final JLabel marketPriceLabel;
     private final JLabel descriptionLabel;
     private final JLabel imageLabel;
+    private JButton addToCollectionBtn;
+    private DatabaseConnectionService dbService;
+    private String username;
+    private Integer cardID;
 
-    public CardDetailPage(Runnable onBack, DatabaseConnectionService dbService) {
-    	CardDetailService cardDetailService = new CardDetailService(dbService);
-        this.cardDetailService = cardDetailService;
+    public CardDetailPage(Runnable onBack, DatabaseConnectionService dbService, String username) {
+    	this.dbService = dbService;
+    	this.username = username;
+    	
 
         JPanel page = UiFactory.pageContainer();
 
@@ -108,14 +118,14 @@ public class CardDetailPage extends JPanel {
      	buttonCard.setPreferredSize(new Dimension(394, 44));
      	buttonCard.setMaximumSize(new Dimension(394, 44));
      	buttonCard.setMinimumSize(new Dimension(394, 44));
-     	JButton addToCollectionBtn = UiFactory.primaryButton("Add Card to Collection");
+     	addToCollectionBtn = UiFactory.primaryButton("Add Card to Collection");
      	addToCollectionBtn.setAlignmentX(CENTER_ALIGNMENT);
      	addToCollectionBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
      	addToCollectionBtn.setMinimumSize(new Dimension(362, 28));
      	addToCollectionBtn.setPreferredSize(new Dimension(362, 28));
      	addToCollectionBtn.addActionListener(e -> {
     	 	// TODO: wire to CollectionService.addCardToCollection()
-     		System.out.println("Hello");
+     		AddCardToOwned(cardID);
      	});
      	buttonCard.add(UiFactory.fillButton(addToCollectionBtn));
 
@@ -254,8 +264,8 @@ public class CardDetailPage extends JPanel {
         imageLabel.setIcon(null);
         imageLabel.setText("Loading…");
 
-        String[] full = cardDetailService.getCardById(cardData[0]);
-
+        String[] full = getCardById(cardData[0]);
+        System.out.println(full[7]);
         if (full == null) {
             titleLabel.setText("Card not found");
             idLabel.setText("—");
@@ -296,7 +306,25 @@ public class CardDetailPage extends JPanel {
         repaint();
 
         String imageUrl = full[12];
-        new Thread(() -> loadImage(imageUrl)).start();
+        String cardId = full[0];
+        cardID = Integer.valueOf(cardId);
+        new Thread(() -> {
+            loadImage(imageUrl);
+            boolean owned = isCardOwned(cardId);
+            SwingUtilities.invokeLater(() -> {
+                if (owned) {
+                    addToCollectionBtn.setText("Already Owned Card");
+                    addToCollectionBtn.setEnabled(false);
+                    addToCollectionBtn.setBackground(new Color(60, 70, 100));
+                    addToCollectionBtn.setForeground(Theme.MUTED);
+                } else {
+                    addToCollectionBtn.setText("Add Card to Collection");
+                    addToCollectionBtn.setEnabled(true);
+                    addToCollectionBtn.setBackground(Theme.ACCENT);
+                    addToCollectionBtn.setForeground(java.awt.Color.WHITE);
+                }
+            });
+        }).start();
     }
 
     private void loadImage(String imageUrl) {
@@ -345,5 +373,113 @@ public class CardDetailPage extends JPanel {
         block.add(lbl);
         block.add(Box.createVerticalStrut(2));
         return block;
+    }
+    
+
+    public String[] getCardById(String id) {
+        Connection conn = dbService.getConnection();
+        if (conn == null) {
+            System.out.println("No active database connection.");
+            return null;
+        }
+        
+        String query = "{Call GetCardInfo (?)}";
+        CallableStatement cs = null;
+        
+        try {
+        	cs = conn.prepareCall(query);
+            cs.setInt(1, Integer.parseInt(id));
+            ResultSet rs = cs.executeQuery();
+
+            if (rs.next()) {
+                String[] card = new String[14];
+                card[0]  = nullDataHandle(rs, "ID");
+                card[1]  = nullDataHandle(rs, "Name");
+                card[2]  = nullDataHandle(rs, "Code");
+                card[3]  = nullDataHandle(rs, "Rarity");
+                card[4]  = nullDataHandle(rs, "Description");
+                card[5]  = nullDataHandle(rs, "MarketPrice");
+                card[6]  = nullDataHandle(rs, "Type");
+                card[7]  = nullDataHandle(rs, "ATK");
+                card[8]  = nullDataHandle(rs, "DEF");
+                card[9]  = nullDataHandle(rs, "Level");
+                card[10] = nullDataHandle(rs, "Race");
+                card[11] = nullDataHandle(rs, "Attribute");
+                card[12] = nullDataHandle(rs, "ImageURL");
+                card[13] = nullDataHandle(rs, "SetID");
+                rs.close();
+                return card;
+            }
+            rs.close();
+
+        } catch (SQLException e) {
+            System.out.println("Error fetching card by ID: " + id);
+            e.printStackTrace();
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid card ID format: " + id);
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    private String nullDataHandle(ResultSet rs, String column) {
+        try {
+            String val = rs.getString(column);
+            if (column == "ATK" || column == "DEF") {
+            	if(val != null && val.equals("-1")) {
+            		return "?";
+            	}
+            }
+            return val != null ? val : "—";
+        } catch (SQLException e) {
+            return "—";
+        }
+    }
+    
+    /**
+     * Checks if the current user already owns this card in any collection.
+     * Query: Select * 
+     * 		  From InCollection ic
+     *        Join [Collection] c on ic.CollectionID = c.ID
+     *        Join [User] u on c.UserID = u.ID
+     *        Where u.Username = ? And ic.CardID = ?
+     */
+    private boolean isCardOwned(String cardId) {
+        Connection conn = dbService.getConnection();
+        if (conn == null) return false;
+
+        String query = "{? = Call CardOwnershipCheck(?,?)}";
+        CallableStatement cs = null;
+        try {
+            cs = conn.prepareCall(query);
+            cs.registerOutParameter(1, java.sql.Types.INTEGER); // register return value
+            cs.setInt(2, Integer.parseInt(cardId));
+            cs.setString(3, username);
+            cs.execute();
+            int result = cs.getInt(1);
+            if (result == 1) return true;
+        } catch (SQLException e) {
+            System.out.println("Invalid card ID: " + cardId);
+        }
+        return false;
+    }
+    
+    private void AddCardToOwned(int CardID) {
+    	Connection conn = dbService.getConnection();
+    	if (conn == null) return;
+    	
+    	String query = "{Call [dbo].[AddCardToOwned] (?, ?, 1)}";
+    	CallableStatement cs = null;
+    	try {
+    		cs = conn.prepareCall(query);
+    		cs.setInt(1, CardID);
+    		cs.setString(2, username);
+    		cs.execute();
+    		
+    	} catch (SQLException e) {
+    		e.printStackTrace();
+    	}
+    	
     }
 }

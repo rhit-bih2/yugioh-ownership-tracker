@@ -1,187 +1,171 @@
 package yot.ui;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
-import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JButton;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
-import javax.swing.border.EmptyBorder;
 import yot.services.DatabaseConnectionService;
-import yot.services.RetrieveCardService;
 
 public class CardLibraryPage extends JPanel {
 
-    private final JPanel resultList;
+    private final Consumer<String[]> onOpenDetail;
+    private final DatabaseConnectionService dbService;
 
     public CardLibraryPage(Consumer<String[]> onOpenDetail, DatabaseConnectionService dbService) {
-    	RetrieveCardService cardService = new RetrieveCardService(dbService);
-    	JPanel page = UiFactory.pageContainer();
+        this.onOpenDetail = onOpenDetail;
+        this.dbService = dbService;
+
+        JPanel page = UiFactory.pageContainer();
 
         // ── Page header ───────────────────────────────────────────────────────
         page.add(UiFactory.pageHeader("Card Library",
                 "Search for any Yu-Gi-Oh card by name."));
         page.add(Box.createVerticalStrut(14));
 
-        // ── Search bar panel ──────────────────────────────────────────────────
-        JPanel searchCard = UiFactory.panelCard();
-        searchCard.setLayout(new BoxLayout(searchCard, BoxLayout.Y_AXIS));
-        searchCard.setBorder(new EmptyBorder(16, 16, 16, 16));
-        searchCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
-        searchCard.add(UiFactory.sectionTitle("Search Cards"));
-        searchCard.add(Box.createVerticalStrut(10));
-
-        JPanel searchRow = UiFactory.rowPanel();
-        searchRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        searchRow.setAlignmentX(LEFT_ALIGNMENT);
-
-        JTextField nameInput = UiFactory.input("Enter card name…");
-        searchRow.add(nameInput);
-        searchRow.add(Box.createHorizontalStrut(8));
-
-        JButton searchBtn = UiFactory.primaryButton("Search");
-        searchRow.add(searchBtn);
-        searchCard.add(searchRow);
-        page.add(searchCard);
-        page.add(Box.createVerticalStrut(14));
-
-        // ── Results panel ─────────────────────────────────────────────────────
-        JPanel resultsCard = UiFactory.panelCard();
-        resultsCard.setLayout(new BoxLayout(resultsCard, BoxLayout.Y_AXIS));
-        resultsCard.setBorder(new EmptyBorder(16, 16, 16, 16));
-        resultsCard.add(UiFactory.sectionTitle("Results"));
-        resultsCard.add(Box.createVerticalStrut(10));
-
-        resultList = new JPanel();
-        resultList.setOpaque(false);
-        resultList.setLayout(new BoxLayout(resultList, BoxLayout.Y_AXIS));
-        resultList.setAlignmentX(LEFT_ALIGNMENT);
-
-        JLabel placeholder = new JLabel("Search for a card above to see results.");
-        placeholder.setForeground(Theme.MUTED);
-        placeholder.setAlignmentX(LEFT_ALIGNMENT);
-        placeholder.setFont(Theme.FONT_BOLD.deriveFont(16f));
-        resultList.add(placeholder);
-
-        resultsCard.add(resultList);
-        page.add(resultsCard);
+        // ── CardSearchPanel handles all search + results + pagination ─────────
+        JPanel searchBox = new CardSearchPanel(
+                this::retrieveCard,        // search fn: Map -> List<Integer>
+                this::navigateDetailPage,  // click fn:  Integer -> void (Move to Detail Page)
+                dbService
+        );
+        page.add(searchBox);
         page.add(Box.createVerticalGlue());
 
-        // ── Search action — calls RetrieveCard SP via CardService ─────────────
-        searchBtn.addActionListener(e -> {
-            String query = nameInput.getText().trim();
-            if (query.isEmpty()) return;
-
-            List<String[]> cards = cardService.retrieveCardByName(query);
-
-            resultList.removeAll();
-
-            if (cards.isEmpty()) {
-                JLabel none = new JLabel("No cards found matching \"" + query + "\".");
-                none.setForeground(Theme.MUTED);
-                none.setAlignmentX(LEFT_ALIGNMENT);
-                none.setFont(Theme.FONT_BOLD.deriveFont(16f));
-                resultList.add(none);
-            } else {
-                for (int i = 0; i < cards.size(); i++) {
-                    resultList.add(cardResultTile(cards.get(i), onOpenDetail));
-                    if (i < cards.size() - 1) {
-                        resultList.add(Box.createVerticalStrut(8));
-                    }
-                }
-            }
-
-            resultList.revalidate();
-            resultList.repaint();
-            SwingUtilities.invokeLater(() -> {
-                resultList.revalidate();
-                resultList.repaint();
-            });
-        });
-
-        // ── Outer layout ──────────────────────────────────────────────────────
         setLayout(new BorderLayout());
         setOpaque(false);
-        add(UiFactory.scrollWrap(page), BorderLayout.CENTER);
+        page.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        page.setAlignmentX(LEFT_ALIGNMENT);
+        add(page, BorderLayout.CENTER);
     }
 
     /**
-     * Builds a single card result row.
-     *
-     * cardData indices (from CardService.retrieveCardByName):
-     *   [0] ID  [1] Name  [2] Code  [3] Rarity  [4] MarketPrice
-     *   [5] Type  [6] ATK  [7] DEF  [8] Level  [9] Race
-     *   [10] Attribute  [11] SetID  [12] Description
+     * Called by CardSearchPanel when the user clicks a card image.
+     * Fetches full card data then fires onOpenDetail to navigate to CardDetailPage.
      */
-    private JPanel cardResultTile(String[] cardData, Consumer<String[]> onOpenDetail) {
-        String name        = cardData[1];
-        String rarity      = cardData[3];
-        String code        = cardData[2];
-        String description = cardData[12];
+    private void navigateDetailPage(Integer cardId) {
+        String[] cardData = getCardById(cardId);
+        if (cardData != null) {
+            onOpenDetail.accept(cardData);
+        }
+    }
 
-        String shortDesc = description.length() > 80
-                ? description.substring(0, 77) + "…"
-                : description;
+    /**
+     * Passed to CardSearchPanel as the search function.
+     * Calls dbo.RetrieveCard with the filter map and returns matching IDs.
+     */
+    private List<Integer> retrieveCard(Map<String, String> map) {
+        List<Integer> list = new ArrayList<>();
+        Connection conn = this.dbService.getConnection();
 
-        JPanel tile = new JPanel();
-        tile.setBackground(new Color(35, 45, 80));
-        tile.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.BORDER),
-                new EmptyBorder(12, 12, 12, 12)
-        ));
-        tile.setLayout(new BoxLayout(tile, BoxLayout.X_AXIS));
-        tile.setAlignmentX(LEFT_ALIGNMENT);
-        tile.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
+        if (conn == null) {
+            System.out.println("No active database connection.");
+            return list;
+        }
 
-        // Card image placeholder
-        JLabel image = new JLabel("Card Image", javax.swing.SwingConstants.CENTER);
-        image.setOpaque(true);
-        image.setBackground(new Color(32, 42, 79));
-        image.setForeground(Theme.MUTED);
-        image.setPreferredSize(new Dimension(70, 90));
-        image.setMaximumSize(new Dimension(70, 90));
-        image.setMinimumSize(new Dimension(70, 90));
+        String query = "{CALL RetrieveCard(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}";
+        CallableStatement cs = null;
+        
+        try {
+        	cs = conn.prepareCall(query);
+            setNullable(cs, 1,  map.get("Name"),        java.sql.Types.NVARCHAR);
+            setNullable(cs, 2,  map.get("Code"),        java.sql.Types.VARCHAR);
+            setNullable(cs, 3,  map.get("Rarity"),      java.sql.Types.VARCHAR);
+            setNullable(cs, 4,  map.get("MarketPrice"), java.sql.Types.FLOAT);
+            setNullable(cs, 5,  map.get("Type"),        java.sql.Types.VARCHAR);
+            setNullable(cs, 6,  map.get("ATK"),         java.sql.Types.INTEGER);
+            setNullable(cs, 7,  map.get("DEF"),         java.sql.Types.INTEGER);
+            setNullable(cs, 8,  map.get("Level"),       java.sql.Types.INTEGER);
+            setNullable(cs, 9,  map.get("Race"),        java.sql.Types.VARCHAR);
+            setNullable(cs, 10, map.get("Attribute"),   java.sql.Types.VARCHAR);
+            setNullable(cs, 11, map.get("SetID"),       java.sql.Types.INTEGER);
 
-        // Info block
-        JPanel info = new JPanel();
-        info.setOpaque(false);
-        info.setLayout(new BoxLayout(info, BoxLayout.Y_AXIS));
+            ResultSet rs = cs.executeQuery();
+            while (rs.next()) {
+                list.add(rs.getInt("ID"));
+            }
+            rs.close();
 
-        JLabel nameLabel = new JLabel(name);
-        nameLabel.setForeground(Theme.TEXT);
-        nameLabel.setFont(Theme.FONT_BOLD);
+        } catch (SQLException e) {
+            System.out.println("Error calling RetrieveCard stored procedure.");
+            e.printStackTrace();
+        }
+        return list;
+    }
 
-        JLabel metaLabel = new JLabel(rarity + "  ·  " + code);
-        metaLabel.setForeground(Theme.ACCENT);
-        metaLabel.setFont(Theme.FONT.deriveFont(12f));
+    /**
+     * Fetches full card data by ID using GetCardInfo stored procedure.
+     *
+     * Array indices:
+     *   [0] ID  [1] Name  [2] Code  [3] Rarity  [4] Description
+     *   [5] MarketPrice  [6] Type  [7] ATK  [8] DEF  [9] Level
+     *   [10] Race  [11] Attribute  [12] ImageURL  [13] SetID
+     */
+    public String[] getCardById(Integer id) {
+        Connection conn = dbService.getConnection();
+        if (conn == null) {
+            System.out.println("No active database connection.");
+            return null;
+        }
+        CallableStatement cs = null;
+        
+        try {
+        	cs = conn.prepareCall("{CALL GetCardInfo(?)}");
+            cs.setInt(1, id);
+            ResultSet rs = cs.executeQuery();
 
-        JLabel descLabel = new JLabel(
-                "<html><body style='width:380px'>" + shortDesc + "</body></html>");
-        descLabel.setForeground(Theme.MUTED);
-        descLabel.setFont(Theme.FONT);
+            if (rs.next()) {
+                String[] card = new String[14];
+                card[0]  = nullDataHandle(rs, "ID");
+                card[1]  = nullDataHandle(rs, "Name");
+                card[2]  = nullDataHandle(rs, "Code");
+                card[3]  = nullDataHandle(rs, "Rarity");
+                card[4]  = nullDataHandle(rs, "Description");
+                card[5]  = nullDataHandle(rs, "MarketPrice");
+                card[6]  = nullDataHandle(rs, "Type");
+                card[7]  = nullDataHandle(rs, "ATK");
+                card[8]  = nullDataHandle(rs, "DEF");
+                card[9]  = nullDataHandle(rs, "Level");
+                card[10] = nullDataHandle(rs, "Race");
+                card[11] = nullDataHandle(rs, "Attribute");
+                card[12] = nullDataHandle(rs, "ImageURL");
+                card[13] = nullDataHandle(rs, "SetID");
+                rs.close();
+                return card;
+            }
+            rs.close();
 
-        info.add(nameLabel);
-        info.add(Box.createVerticalStrut(4));
-        info.add(metaLabel);
-        info.add(Box.createVerticalStrut(4));
-        info.add(descLabel);
+        } catch (SQLException e) {
+            System.out.println("Error fetching card by ID: " + id);
+            e.printStackTrace();
+        }
 
-        // Card Detail button
-        JButton detailBtn = UiFactory.outlineButton("Card Detail");
-        detailBtn.addActionListener(ev -> onOpenDetail.accept(cardData));
+        return null;
+    }
 
-        tile.add(image);
-        tile.add(Box.createHorizontalStrut(12));
-        tile.add(info);
-        tile.add(Box.createHorizontalGlue());
-        tile.add(detailBtn);
-        return tile;
+    private void setNullable(CallableStatement cs, int index, String value, int sqlType)
+            throws SQLException {
+        if (value == null || value.isEmpty()) {
+            cs.setNull(index, sqlType);
+        } else {
+            cs.setString(index, value);
+        }
+    }
+
+    private String nullDataHandle(ResultSet rs, String column) {
+        try {
+            String val = rs.getString(column);
+            return val != null ? val : "—";
+        } catch (SQLException e) {
+            return "—";
+        }
     }
 }

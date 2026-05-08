@@ -151,7 +151,7 @@ public class MainFrame extends JFrame {
     }
     
     private JButton buildLogoutButton() {
-        JButton logout = new JButton("Log Out");
+        JButton logout = new JButton("Exit");
         logout.setHorizontalAlignment(SwingConstants.CENTER);
         logout.setAlignmentX(JButton.CENTER_ALIGNMENT);
         logout.setMaximumSize(new Dimension(186, 34));
