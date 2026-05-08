@@ -126,6 +126,8 @@ public class CardDetailPage extends JPanel {
      	addToCollectionBtn.addActionListener(e -> {
     	 	// TODO: wire to CollectionService.addCardToCollection()
      		AddCardToOwned(cardID);
+     		revalidate();
+            repaint();
      	});
      	buttonCard.add(UiFactory.fillButton(addToCollectionBtn));
 
@@ -265,7 +267,6 @@ public class CardDetailPage extends JPanel {
         imageLabel.setText("Loading…");
 
         String[] full = getCardById(cardData[0]);
-        System.out.println(full[7]);
         if (full == null) {
             titleLabel.setText("Card not found");
             idLabel.setText("—");
@@ -467,16 +468,21 @@ public class CardDetailPage extends JPanel {
     
     private void AddCardToOwned(int CardID) {
     	Connection conn = dbService.getConnection();
-    	if (conn == null) return;
     	
-    	String query = "{Call [dbo].[AddCardToOwned] (?, ?, 1)}";
+    	String query = "{Call [dbo].[AddCardToOwned] (?, ?)}";
     	CallableStatement cs = null;
     	try {
-    		cs = conn.prepareCall(query);
-    		cs.setInt(1, CardID);
-    		cs.setString(2, username);
-    		cs.execute();
-    		
+    	    cs = conn.prepareCall(query);
+    	    cs.setInt(1, CardID);
+    	    cs.setString(2, username);
+    	    cs.execute();
+    	    // Disable button after successful add
+    	    SwingUtilities.invokeLater(() -> {
+    	        addToCollectionBtn.setText("Already Owned Card");
+    	        addToCollectionBtn.setEnabled(false);
+    	        addToCollectionBtn.setBackground(new Color(60, 70, 100));
+    	        addToCollectionBtn.setForeground(Theme.MUTED);
+    	    });
     	} catch (SQLException e) {
     		e.printStackTrace();
     	}
