@@ -36,12 +36,14 @@ public class CardSearchPanel extends JPanel {
     private static List<Integer> currentResults = null;
     private static Map<String, String> currentSearchParams = null;
     private static int currentPage = 0;
-    private static final int RESULTS_PER_PAGE = 40;
+    private static final int RESULTS_PER_PAGE = 50;
     
     private JPanel cardsPanel;
     private JLabel pageLabel;
     private JButton prevButton;
     private JButton nextButton;
+    
+    private JPanel results = null;
     
     private CardSearchService cardSearchService = null;
 
@@ -130,18 +132,18 @@ public class CardSearchPanel extends JPanel {
         container.add(searcher);
         container.add(Box.createVerticalStrut(12));
         
-        JPanel results = UiFactory.panelCard();
+        results = UiFactory.panelCard();
 		results.setLayout(new BoxLayout(results, BoxLayout.Y_AXIS));
 		results.setVisible(false);
 		
 		this.cardsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
 		this.cardsPanel.setMaximumSize(new Dimension(900, Integer.MAX_VALUE));
-		this.cardsPanel.setPreferredSize(new Dimension(900, 0));
+		this.cardsPanel.setPreferredSize(new Dimension(0, 608));
 		this.cardsPanel.setOpaque(false);
 		this.cardsPanel.setAlignmentX(LEFT_ALIGNMENT);
 		
 		JScrollPane scrollWrapper = UiFactory.scrollWrap(this.cardsPanel);
-		
+//		scrollWrapper.setMinimumSize(new Dimension(cardsPanel.getWidth(), 600));
 		
 		JPanel paginationPanel = UiFactory.rowPanel();
 		paginationPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
@@ -232,6 +234,7 @@ public class CardSearchPanel extends JPanel {
 			}
 		});
 		
+//		results.setPreferredSize(new Dimension(results.getWidth(), container.getHeight()));
 		container.add(results);
 
         add(container);
