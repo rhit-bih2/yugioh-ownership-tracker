@@ -122,7 +122,15 @@ public class CollectionsPage extends JPanel {
         if (!isDefault) {
 	        JButton editBtn = UiFactory.outlineButton("Edit");
 	        editBtn.addActionListener(e -> {
-	        	String updatedName = JOptionPane.showInputDialog(this, "Enter new collection name:");
+	        	String updatedName = (String) JOptionPane.showInputDialog(
+	        			this,
+	        			"Enter new collection name:",
+	        			"Edit Collection",
+	        			JOptionPane.PLAIN_MESSAGE,
+	        			null,
+	        			null,
+	        			name
+	        	);
 	        	if (updatedName == null || updatedName.trim().isEmpty()) {
 	        		return;
 	        	}
