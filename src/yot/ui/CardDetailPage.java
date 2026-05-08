@@ -450,18 +450,17 @@ public class CardDetailPage extends JPanel {
         Connection conn = dbService.getConnection();
         if (conn == null) return false;
 
-        String query = "{? = Call CardOwnershipCheck(?,?)}";
-        CallableStatement cs = null;
-        try {
-            cs = conn.prepareCall(query);
-            cs.registerOutParameter(1, java.sql.Types.INTEGER); // register return value
-            cs.setInt(2, Integer.parseInt(cardId));
-            cs.setString(3, username);
-            cs.execute();
-            int result = cs.getInt(1);
-            if (result == 1) return true;
+        String query = "{Call CardOwnershipCheck(?,?)}";
+        try (CallableStatement cs = conn.prepareCall(query)) {
+            cs.setInt(1, Integer.parseInt(cardId));
+            cs.setString(2, username);
+            ResultSet rs = cs.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("Result") == 1;
+            }
         } catch (SQLException e) {
-            System.out.println("Invalid card ID: " + cardId);
+            System.out.println("Error checking card ownership.");
+            e.printStackTrace();
         }
         return false;
     }
