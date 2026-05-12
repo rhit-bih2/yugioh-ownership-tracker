@@ -48,8 +48,8 @@ public class AppNavigator {
         show(PAGE_DETAIL);
     }
     
-    public void openCardDetail(String[] cardData) {
-        cardDetailPage.setCardData(cardData);
+    public void openCardDetail(Integer cardID) {
+        cardDetailPage.setCardData(cardID);
         show(PAGE_CARD_DETAIL);
     }
 
