@@ -3,7 +3,11 @@ package yot.ui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Image;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -20,7 +24,9 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JViewport;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 import yot.services.CollectionService;
@@ -28,15 +34,22 @@ import yot.services.CollectionService.CollectionCard;
 import yot.services.DatabaseConnectionService;
 
 public class CollectionDetailPage extends JPanel {
+	private static final int CARD_TILE_WIDTH = 360;
+	private static final int CARD_TILE_GAP = 8;
+	private static final int CARD_NAME_MAX_WIDTH = 190;
+	private static final float CARD_NAME_MIN_FONT_SIZE = 10f;
+
     private final JLabel titleLabel;
     private final CollectionService collectionService;
     private final DatabaseConnectionService dbService;
     private final JPanel cardsPanel;
+    private final JPanel cardsGridPanel;
     private final JPanel searchPanelContainer;
     private int currentCollectionID = -1;
     private String currentCollectionName = "All Cards";
 	private final String username;
 	private final Map<Integer, ImageIcon> cardImageCache = new HashMap<Integer, ImageIcon>();
+	private ArrayList<CardRow> currentRows = new ArrayList<CardRow>();
 	
 	private static class CardRow {
 		private final CollectionCard card;
@@ -98,6 +111,25 @@ public class CollectionDetailPage extends JPanel {
         cardsPanel = UiFactory.panelCard();
         cardsPanel.setLayout(new BoxLayout(cardsPanel, BoxLayout.Y_AXIS));
         cardsPanel.setBorder(new EmptyBorder(16, 16, 16, 16));
+        cardsGridPanel = new JPanel();
+        cardsGridPanel.setLayout(new BoxLayout(cardsGridPanel, BoxLayout.Y_AXIS));
+        cardsGridPanel.setOpaque(false);
+        cardsGridPanel.setAlignmentX(LEFT_ALIGNMENT);
+        cardsPanel.add(UiFactory.sectionTitle("Cards in Collection"));
+        cardsPanel.add(Box.createVerticalStrut(10));
+        cardsPanel.add(cardsGridPanel);
+        cardsPanel.addComponentListener(new ComponentAdapter() {
+        	@Override
+        	public void componentResized(ComponentEvent e) {
+        		relayoutCardGrid();
+        	}
+        });
+        addComponentListener(new ComponentAdapter() {
+        	@Override
+        	public void componentResized(ComponentEvent e) {
+        		relayoutCardGrid();
+        	}
+        });
         rebuildCards(new ArrayList<CardRow>());
         page.add(Box.createVerticalStrut(14));
         page.add(cardsPanel);
@@ -145,21 +177,59 @@ public class CollectionDetailPage extends JPanel {
     }
 
     private void rebuildCards(ArrayList<CardRow> rows) {
-    	cardsPanel.removeAll();
-    	cardsPanel.add(UiFactory.sectionTitle("Cards in Collection"));
-    	cardsPanel.add(Box.createVerticalStrut(10));
-    	if (rows.isEmpty()) {
+    	currentRows = new ArrayList<CardRow>(rows);
+    	relayoutCardGrid();
+    }
+
+    private void relayoutCardGrid() {
+    	cardsGridPanel.removeAll();
+
+    	if (currentRows.isEmpty()) {
     		JLabel empty = new JLabel("No cards in this collection yet.");
     		empty.setForeground(Theme.MUTED);
-    		cardsPanel.add(empty);
-    	} else {
-    		for (CardRow row : rows) {
-    			cardsPanel.add(cardTile(row));
-    			cardsPanel.add(Box.createVerticalStrut(8));
+    		empty.setAlignmentX(LEFT_ALIGNMENT);
+    		cardsGridPanel.add(empty);
+    		cardsGridPanel.revalidate();
+    		cardsGridPanel.repaint();
+    		return;
+    	}
+
+    	int availableWidth = getCardsViewportWidth();
+    	int columns = Math.max(1, (availableWidth + CARD_TILE_GAP) / (CARD_TILE_WIDTH + CARD_TILE_GAP));
+    	int index = 0;
+    	while (index < currentRows.size()) {
+    		JPanel rowPanel = new JPanel();
+    		rowPanel.setOpaque(false);
+    		rowPanel.setAlignmentX(LEFT_ALIGNMENT);
+    		rowPanel.setLayout(new BoxLayout(rowPanel, BoxLayout.X_AXIS));
+    		
+    		for (int col = 0; col < columns && index < currentRows.size(); col++) {
+    			rowPanel.add(cardTile(currentRows.get(index)));
+    			index++;
+    			if (col < columns - 1 && index < currentRows.size()) {
+    				rowPanel.add(Box.createHorizontalStrut(CARD_TILE_GAP));
+    			}
+    		}
+    		rowPanel.add(Box.createHorizontalGlue());
+    		cardsGridPanel.add(rowPanel);
+    		if (index < currentRows.size()) {
+    			cardsGridPanel.add(Box.createVerticalStrut(CARD_TILE_GAP));
     		}
     	}
+
     	cardsPanel.revalidate();
     	cardsPanel.repaint();
+    }
+    
+    private int getCardsViewportWidth() {
+    	JViewport viewport = (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, cardsPanel);
+    	if (viewport != null && viewport.getWidth() > 0) {
+    		return Math.max(CARD_TILE_WIDTH, viewport.getWidth() - 32);
+    	}
+    	if (cardsPanel.getWidth() > 0) {
+    		return Math.max(CARD_TILE_WIDTH, cardsPanel.getWidth() - 32);
+    	}
+    	return CARD_TILE_WIDTH;
     }
 
     private JPanel cardTile(CardRow row) {
@@ -171,6 +241,9 @@ public class CollectionDetailPage extends JPanel {
                 new EmptyBorder(12, 12, 12, 12)
         ));
         tile.setLayout(new BoxLayout(tile, BoxLayout.X_AXIS));
+        tile.setPreferredSize(new Dimension(CARD_TILE_WIDTH, 174));
+        tile.setMaximumSize(new Dimension(CARD_TILE_WIDTH, 174));
+        tile.setMinimumSize(new Dimension(CARD_TILE_WIDTH, 174));
 
         JLabel image = buildCardImageLabel(card.getId());
 
@@ -180,6 +253,7 @@ public class CollectionDetailPage extends JPanel {
         JLabel cardName = new JLabel(card.getName());
         cardName.setForeground(Theme.TEXT);
         cardName.setFont(Theme.FONT_BOLD);
+        fitCardNameFont(cardName, card.getName());
         right.add(cardName);
         right.add(Box.createVerticalStrut(8));
         JLabel quantityLabel = new JLabel("Quantity: " + row.quantity);
@@ -330,6 +404,16 @@ public class CollectionDetailPage extends JPanel {
         }
 
         return image;
+    }
+    
+    private void fitCardNameFont(JLabel label, String text) {
+    	Font currentFont = Theme.FONT_BOLD;
+    	FontMetrics metrics = label.getFontMetrics(currentFont);
+    	while (metrics.stringWidth(text) > CARD_NAME_MAX_WIDTH && currentFont.getSize2D() > CARD_NAME_MIN_FONT_SIZE) {
+    		currentFont = currentFont.deriveFont(currentFont.getSize2D() - 1f);
+    		metrics = label.getFontMetrics(currentFont);
+    	}
+    	label.setFont(currentFont);
     }
     
     private OwnershipEnforcementResult enforceOwnedQuantityLimitAcrossCollections(int cardID, int ownedQuantity) {
