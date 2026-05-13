@@ -2,10 +2,6 @@ package yot.ui;
 
 import java.awt.Dimension;
 import java.awt.GridBagLayout;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.util.Properties;
 import java.util.function.Consumer;
 
 import javax.swing.Box;
@@ -14,31 +10,22 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.border.EmptyBorder;
-
-import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
-import org.jasypt.properties.EncryptableProperties;
-
 import javax.swing.JTextField;
+import javax.swing.border.EmptyBorder;
 
 import yot.services.*;
 
+
 public class LandingPage extends JPanel {
-	private static String serverUsername = null;
-	private static String serverPassword = null;
-	private static DatabaseConnectionService dbService = null;
 	private static String username;
-	private static EncryptionService es = new EncryptionService();
 	private static UserService userService;
 	private static Consumer<String> loginFn;
+	private static Consumer<String> switchPageFn;
 	
-    public LandingPage(Consumer<String> onLogin) {
-    	Properties props = loadProperties();
-    	serverUsername = props.getProperty("serverUsername");
-		serverPassword = props.getProperty("serverPassword");
-		dbService = new DatabaseConnectionService(props.getProperty("serverName"), props.getProperty("databaseName"));
+    public LandingPage(Consumer<String> onLogin, Consumer<String> onSwitchPage, DatabaseConnectionService dbService) {
 		userService = new UserService(dbService);
 		loginFn = onLogin;
+		switchPageFn = onSwitchPage;
     	
         setLayout(new GridBagLayout());
         setBackground(Theme.BG);
@@ -75,7 +62,7 @@ public class LandingPage extends JPanel {
         authCard.add(Box.createVerticalStrut(4));
         authCard.add(authSub);
         authCard.add(Box.createVerticalStrut(18));
-        authCard.add(UiFactory.formLabel("Username"));
+        authCard.add(UiFactory.formLabel("Username*"));
         authCard.add(Box.createVerticalStrut(6));
         JTextField usernameInput = UiFactory.input("");
         authCard.add(usernameInput);
@@ -99,11 +86,19 @@ public class LandingPage extends JPanel {
         authWrap.add(Box.createHorizontalGlue());
         shell.add(authWrap);
 
+        // Add bottom right button to switch to seller registration
+        JPanel bottomPanel = new JPanel();
+        bottomPanel.setOpaque(false);
+        bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.X_AXIS));
+        bottomPanel.add(Box.createHorizontalGlue());
+        JButton sellerRegButton = UiFactory.softButton("Register as Seller");
+        sellerRegButton.addActionListener(e -> switchPageFn.accept("sellerReg"));
+        bottomPanel.add(sellerRegButton);
+        bottomPanel.setBorder(new EmptyBorder(16, 0, 0, 0));
+        shell.add(Box.createVerticalGlue());
+        shell.add(bottomPanel);
+
         add(shell);
-        
-        if (!dbService.connect(serverUsername, serverPassword)) {
-			JOptionPane.showMessageDialog(null, "Connection to database could not be made.");
-		}
     }
     
     private void login(String username, String password) {
@@ -111,7 +106,7 @@ public class LandingPage extends JPanel {
     		LandingPage.username = username;
     		loginFn.accept(username);
 		} else {
-			System.out.println("Invalid username or password");
+			JOptionPane.showMessageDialog(null, "Invalid username or password.");
 		}
     }
     
@@ -120,43 +115,8 @@ public class LandingPage extends JPanel {
     		LandingPage.username = username;
     		loginFn.accept(username);
 		} else {
-			System.out.println("Invalid username");
+			JOptionPane.showMessageDialog(null, "Username already exists.");
 		}
-    }
-    
-    public static Properties loadProperties() {
-		String binDir = System.getProperty("user.dir") + "/bin/";
-		StandardPBEStringEncryptor encryptor = new StandardPBEStringEncryptor();
-		encryptor.setPassword(es.getEncryptionPassword());
-		FileInputStream fis = null;
-		EncryptableProperties props = new EncryptableProperties(encryptor);
-		try {
-			fis = new FileInputStream(binDir + "yot.properties");
-			props.load(fis);
-		} catch (FileNotFoundException e) {
-			System.out.println("yot.properties file not found");
-			e.printStackTrace();
-			System.exit(1);
-		} catch (IOException e) {
-			System.out.println("yot.properties file could not be opened");
-			e.printStackTrace();
-			System.exit(1);
-		}
-		finally {
-			if (fis!=null) {
-				try {
-					fis.close();
-				} catch (IOException e) {
-					System.out.println("Input Stream could not be closed.");
-					e.printStackTrace();
-				}
-			}
-		}
-		return props;
-	}
-    
-    public DatabaseConnectionService getdbService() {
-    	return LandingPage.dbService;
     }
     
     public String getUsername() {

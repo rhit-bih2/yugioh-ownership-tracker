@@ -42,7 +42,6 @@ public class UserService {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		JOptionPane.showMessageDialog(null, "Login Failed");
 		return false;
 	}
 
@@ -57,7 +56,32 @@ public class UserService {
 			stmt.setString(3, hash);
 			stmt.execute();
 		} catch (SQLException e) {
-			JOptionPane.showMessageDialog(null, "Registration Failed");
+			e.printStackTrace();
+			return false;
+		}
+		return true;
+	}
+	
+	public boolean registerSeller(String username, String password, String phone, String storeName, String address, String city, String state, String zipcode, String desc) {
+		try {
+			if(!register(username, password)) {
+				if(!login(username, password)) {
+					System.out.println("invalid username or password");
+					return false;
+				}
+			}
+			Connection connection = this.dbService.getConnection();
+			CallableStatement stmt = connection.prepareCall("{CALL RegisterSeller(?, ?, ?, ?, ?, ?, ?, ?)}");
+			stmt.setString(1, username);
+			stmt.setString(2, phone);
+			stmt.setString(3, storeName);
+			stmt.setString(4, address);
+			stmt.setString(5, city);
+			stmt.setString(6, state);
+			stmt.setString(7, zipcode);
+			stmt.setString(8, desc);
+			stmt.execute();
+		} catch (SQLException e) {
 			e.printStackTrace();
 			return false;
 		}

@@ -5,22 +5,32 @@ import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.GridLayout;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
+import org.jasypt.encryption.pbe.StandardPBEStringEncryptor;
+import org.jasypt.properties.EncryptableProperties;
+
 import yot.services.DatabaseConnectionService;
+import yot.services.EncryptionService;
 
 public class MainFrame extends JFrame {
     private static final String PAGE_LANDING = "landing";
+    private static final String PAGE_SELLER_REG = "sellerReg";
     private static final String PAGE_APP = "app";
 
     private final CardLayout rootLayout = new CardLayout();
@@ -38,9 +48,22 @@ public class MainFrame extends JFrame {
 
         rootPanel.setBackground(Theme.BG);
         
-        LandingPage landingPage = new LandingPage(this::onLoginSuccess);
-        MainFrame.dbService = landingPage.getdbService();
+        // Initialize properties and database connection once
+        Properties props = loadProperties();
+        String serverUsername = props.getProperty("serverUsername");
+        String serverPassword = props.getProperty("serverPassword");
+        MainFrame.dbService = new DatabaseConnectionService(props.getProperty("serverName"), props.getProperty("databaseName"));
+        
+        if (!dbService.connect(serverUsername, serverPassword)) {
+            JOptionPane.showMessageDialog(null, "Connection to database could not be made.");
+        }
+        
+        LandingPage landingPage = new LandingPage(this::onLoginSuccess, this::switchPage, dbService);
         rootPanel.add(landingPage, PAGE_LANDING);
+        
+        SellerRegPage sellerRegPage = new SellerRegPage(this::onLoginSuccess, this::switchPage, dbService);
+        rootPanel.add(sellerRegPage, PAGE_SELLER_REG);
+        
         setContentPane(rootPanel);
         showLanding();
     }
@@ -120,6 +143,46 @@ public class MainFrame extends JFrame {
 
     private void showLanding() {
         rootLayout.show(rootPanel, PAGE_LANDING);
+    }
+
+    private void switchPage(String pageId) {
+        if ("landing".equals(pageId)) {
+            rootLayout.show(rootPanel, PAGE_LANDING);
+        } else if ("sellerReg".equals(pageId)) {
+            rootLayout.show(rootPanel, PAGE_SELLER_REG);
+        }
+    }
+
+    private static Properties loadProperties() {
+        String binDir = System.getProperty("user.dir") + "/bin/";
+        EncryptionService es = new EncryptionService();
+        StandardPBEStringEncryptor encryptor = new StandardPBEStringEncryptor();
+        encryptor.setPassword(es.getEncryptionPassword());
+        FileInputStream fis = null;
+        EncryptableProperties props = new EncryptableProperties(encryptor);
+        try {
+            fis = new FileInputStream(binDir + "yot.properties");
+            props.load(fis);
+        } catch (FileNotFoundException e) {
+            System.out.println("yot.properties file not found");
+            e.printStackTrace();
+            System.exit(1);
+        } catch (IOException e) {
+            System.out.println("yot.properties file could not be opened");
+            e.printStackTrace();
+            System.exit(1);
+        }
+        finally {
+            if (fis!=null) {
+                try {
+                    fis.close();
+                } catch (IOException e) {
+                    System.out.println("Input Stream could not be closed.");
+                    e.printStackTrace();
+                }
+            }
+        }
+        return props;
     }
 
     private void showAppPage(String pageId) {
