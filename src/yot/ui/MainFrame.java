@@ -27,6 +27,7 @@ import org.jasypt.properties.EncryptableProperties;
 
 import yot.services.DatabaseConnectionService;
 import yot.services.EncryptionService;
+import yot.services.UserService;
 
 public class MainFrame extends JFrame {
     private static final String PAGE_LANDING = "landing";
@@ -69,24 +70,25 @@ public class MainFrame extends JFrame {
     }
 
     private void onLoginSuccess(String username) {
+        boolean isSeller = new UserService(dbService).isSeller(username);
         CardLayout appLayout = new CardLayout();
         JPanel appContentPanel = new JPanel(appLayout);
-        navigator = new AppNavigator(appLayout, appContentPanel, this::updateNavActive, dbService, username);
+        navigator = new AppNavigator(appLayout, appContentPanel, this::updateNavActive, dbService, username, isSeller);
 
-        rootPanel.add(buildAppShell(navigator.getView()), PAGE_APP);
+        rootPanel.add(buildAppShell(navigator.getView(), isSeller), PAGE_APP);
         showAppPage(AppNavigator.PAGE_COLLECTIONS);
     }
 
-    private JPanel buildAppShell(java.awt.Component content) {
+    private JPanel buildAppShell(java.awt.Component content, boolean isSeller) {
         JPanel shell = new JPanel(new BorderLayout());
         shell.setBackground(Theme.BG);
 
-        shell.add(buildSidebar(), BorderLayout.WEST);
+        shell.add(buildSidebar(isSeller), BorderLayout.WEST);
         shell.add(content, BorderLayout.CENTER);
         return shell;
     }
 
-    private JPanel buildSidebar() {
+    private JPanel buildSidebar(boolean isSeller) {
         JPanel side = new JPanel();
         side.setBackground(Theme.PANEL_ALT);
         side.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Theme.BORDER));
@@ -105,7 +107,7 @@ public class MainFrame extends JFrame {
         side.add(brand);
         side.add(Box.createVerticalStrut(16));
 
-        int numPage = 3;
+        int numPage = isSeller ? 4 : 3;
         JPanel navGroup = new JPanel(new GridLayout(numPage, 1, 0, 0));
         navGroup.setOpaque(false);
         navButtons.clear();
@@ -113,6 +115,9 @@ public class MainFrame extends JFrame {
         navGroup.add(navButton("Collections", AppNavigator.PAGE_COLLECTIONS));
         navGroup.add(navButton("Trade", AppNavigator.PAGE_TRADE));
         navGroup.add(navButton("Card Library", AppNavigator.PAGE_LIBRARY));
+        if (isSeller) {
+            navGroup.add(navButton("My Listings", AppNavigator.PAGE_MY_LISTINGS));
+        }
         side.add(navGroup);
         side.add(Box.createVerticalGlue());
         side.add(buildLogoutButton());
@@ -203,6 +208,8 @@ public class MainFrame extends JFrame {
             } else if (btn.getText().contains("Trade") && AppNavigator.PAGE_TRADE.equals(pageId)) {
                 setNavActive(btn);
             } else if (btn.getText().contains("Library") && AppNavigator.PAGE_LIBRARY.equals(pageId)) {
+                setNavActive(btn);
+            } else if (btn.getText().contains("Listings") && AppNavigator.PAGE_MY_LISTINGS.equals(pageId)) {
                 setNavActive(btn);
             }
         }

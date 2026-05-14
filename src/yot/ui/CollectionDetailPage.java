@@ -3,17 +3,21 @@ package yot.ui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Cursor;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Image;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -48,6 +52,7 @@ public class CollectionDetailPage extends JPanel {
     private int currentCollectionID = -1;
     private String currentCollectionName = "All Cards";
 	private final String username;
+	private final Consumer<Integer> onOpenCardDetail;
 	private final Map<Integer, ImageIcon> cardImageCache = new HashMap<Integer, ImageIcon>();
 	private ArrayList<CardRow> currentRows = new ArrayList<CardRow>();
 	
@@ -75,10 +80,11 @@ public class CollectionDetailPage extends JPanel {
 		}
 	}
 
-    public CollectionDetailPage(Runnable onBack, DatabaseConnectionService dbService, String username) {
+    public CollectionDetailPage(Runnable onBack, Consumer<Integer> onOpenCardDetail, DatabaseConnectionService dbService, String username) {
     	this.dbService = dbService;
     	this.collectionService = new CollectionService(dbService);
     	this.username = username;
+    	this.onOpenCardDetail = onOpenCardDetail;
         JPanel page = UiFactory.pageContainer();
 
         JPanel top = UiFactory.rowPanel();
@@ -379,12 +385,14 @@ public class CollectionDetailPage extends JPanel {
         if (cachedIcon != null) {
         	image.setIcon(cachedIcon);
         	image.setText(null);
+        	wireCardImageClick(image, cardID);
         	return image;
         }
 
         String imageUrl = collectionService.getCardImage(cardID);
         if (imageUrl == null || imageUrl.trim().isEmpty()) {
         	image.setText("No Image");
+        	wireCardImageClick(image, cardID);
         	return image;
         }
 
@@ -392,6 +400,7 @@ public class CollectionDetailPage extends JPanel {
         	Image raw = ImageIO.read(new URL(imageUrl));
         	if (raw == null) {
         		image.setText("No Image");
+        		wireCardImageClick(image, cardID);
         		return image;
         	}
         	Image scaled = raw.getScaledInstance(120, 150, Image.SCALE_SMOOTH);
@@ -403,7 +412,18 @@ public class CollectionDetailPage extends JPanel {
         	image.setText("Image unavailable");
         }
 
+        wireCardImageClick(image, cardID);
         return image;
+    }
+    
+    private void wireCardImageClick(JLabel imageLabel, int cardID) {
+    	imageLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    	imageLabel.addMouseListener(new MouseAdapter() {
+    		@Override
+    		public void mouseClicked(MouseEvent e) {
+    			onOpenCardDetail.accept(cardID);
+    		}
+    	});
     }
     
     private void fitCardNameFont(JLabel label, String text) {

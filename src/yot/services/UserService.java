@@ -62,6 +62,24 @@ public class UserService {
 		return true;
 	}
 	
+	/**
+	 * Returns whether the user is registered as a seller.
+	 * Requires stored procedure: {@code IsSeller(@Username)} returning a single row with a non-zero int / bit meaning true.
+	 */
+	public boolean isSeller(String username) {
+		try {
+			CallableStatement stmt = dbService.getConnection().prepareCall("{call IsSeller(?)}");
+			stmt.setString(1, username);
+			ResultSet rs = stmt.executeQuery();
+			if (rs.next()) {
+				return rs.getInt(1) != 0;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
+
 	public boolean registerSeller(String username, String password, String phone, String storeName, String address, String city, String state, String zipcode, String desc) {
 		try {
 			if(!register(username, password)) {
