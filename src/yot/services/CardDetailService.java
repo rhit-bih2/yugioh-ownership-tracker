@@ -15,19 +15,9 @@ public class CardDetailService{
 		this.dbService = dbService;
 	}
 	
-	/**
-     * Passed to CardSearchPanel as the search function.
-     * Calls dbo.RetrieveCard with the filter map and returns matching IDs.
-     */
     public List<Integer> retrieveCard(Map<String, String> map) {
         List<Integer> list = new ArrayList<>();
         Connection conn = this.dbService.getConnection();
-
-        if (conn == null) {
-            System.out.println("No active database connection.");
-            return list;
-        }
-
         String query = "{CALL RetrieveCard(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}";
         CallableStatement cs = null;
         
@@ -59,9 +49,7 @@ public class CardDetailService{
     }
 
     
-    /**
-     * Fetches full card data by ID using GetCardInfo stored procedure.
-     *
+    /**     
      * Array indices:
      *   [0] ID  [1] Name  [2] Code  [3] Rarity  [4] Description
      *   [5] MarketPrice  [6] Type  [7] ATK  [8] DEF  [9] Level
@@ -70,9 +58,9 @@ public class CardDetailService{
     public String[] getCardById(Integer id) {
         Connection conn = dbService.getConnection();
         CallableStatement cs = null;
-        
+        String query = "{CALL GetCardInfo(?)}";
         try {
-        	cs = conn.prepareCall("{CALL GetCardInfo(?)}");
+        	cs = conn.prepareCall(query);
             cs.setInt(1, id);
             ResultSet rs = cs.executeQuery();
 
@@ -125,9 +113,10 @@ public class CardDetailService{
     
     public boolean isCardOwned(String cardId, String username) {
         Connection conn = dbService.getConnection();
-
         String query = "{Call CardOwnershipCheck(?,?)}";
-        try (CallableStatement cs = conn.prepareCall(query)) {
+        CallableStatement cs = null;
+        try {
+        	cs = conn.prepareCall(query);
             cs.setInt(1, Integer.parseInt(cardId));
             cs.setString(2, username);
             ResultSet rs = cs.executeQuery();
@@ -143,7 +132,6 @@ public class CardDetailService{
     
     public void AddCardToOwned(int CardID, String username) {
     	Connection conn = dbService.getConnection();
-    	
     	String query = "{Call [dbo].[AddCardToOwned] (?, ?)}";
     	CallableStatement cs = null;
     	try {
@@ -151,7 +139,6 @@ public class CardDetailService{
     	    cs.setInt(1, CardID);
     	    cs.setString(2, username);
     	    cs.execute();
-    	    // Disable button after successful add
     	} catch (SQLException e) {
     		e.printStackTrace();
     	}

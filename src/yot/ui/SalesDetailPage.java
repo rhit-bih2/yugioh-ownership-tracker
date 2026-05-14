@@ -28,8 +28,6 @@ public class SalesDetailPage extends JPanel {
 
     private final SalesDetailService salesDetailService;
     private final CardSearchService cardSearchService;
-    private final Consumer<Integer> onOpenCardDetail;
-    private final Runnable onBack;
 
     private final JLabel imageLabel;
     private final JLabel sellerUsernameLabel;
@@ -44,13 +42,15 @@ public class SalesDetailPage extends JPanel {
     private final JLabel marketPriceLabel;
 
     private int currentCardId = -1;
+	private Runnable backAction;
+    private final JButton backBtn;
+
 
     public SalesDetailPage(Runnable onBack, DatabaseConnectionService dbService,
                            Consumer<Integer> onOpenCardDetail) {
-        this.onBack            = onBack;
-        this.onOpenCardDetail  = onOpenCardDetail;
         this.salesDetailService = new SalesDetailService(dbService);
         this.cardSearchService  = new CardSearchService(dbService);
+        this.backAction = onBack;
 
         JPanel page = UiFactory.pageContainer();
 
@@ -74,12 +74,14 @@ public class SalesDetailPage extends JPanel {
         header.add(Box.createVerticalStrut(4));
         header.add(sub);
 
-        JButton back = UiFactory.outlineButton("← Back to Marketplace");
-        back.addActionListener(e -> onBack.run());
+        backBtn = UiFactory.outlineButton("← Back to Marketplace");
+        backBtn.addActionListener(e -> {
+            if (backAction != null) backAction.run();
+        });
 
         top.add(header);
         top.add(Box.createHorizontalGlue());
-        top.add(back);
+        top.add(backBtn);
         page.add(top);
         page.add(Box.createVerticalStrut(14));
 
@@ -337,5 +339,21 @@ public class SalesDetailPage extends JPanel {
         row.add(valueLabel);
         row.add(Box.createHorizontalGlue());
         return row;
+    }
+    
+    /**
+     * Sets where the back button navigates.
+     * Call before navigating to this page from a non-library source.
+     */
+    public void setBackAction(Runnable action) {
+        this.backAction = action;
+    }
+
+    /**
+     * Sets the back button label text.
+     * Call before navigating to this page from a non-library source.
+     */
+    public void setBackLabel(String label) {
+        backBtn.setText(label);
     }
 }

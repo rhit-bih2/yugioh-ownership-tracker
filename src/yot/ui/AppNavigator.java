@@ -45,7 +45,7 @@ public class AppNavigator {
 
 
         if (isSeller) {
-            container.add(new MyListingsPage(dbService, username, this::openSalesDetail), PAGE_MY_LISTINGS);
+            container.add(new MyListingsPage(dbService, username, this::openSalesDetailFromMyListings), PAGE_MY_LISTINGS);
         }
     }
 
@@ -79,7 +79,16 @@ public class AppNavigator {
         show(PAGE_CARD_DETAIL);
     }
     
+    public void openSalesDetailFromMyListings(String username, Integer CardID) {
+    	salesDetailPage.setBackAction(() -> show(PAGE_MY_LISTINGS));
+    	salesDetailPage.setBackLabel("← Back to My Listing");
+    	salesDetailPage.loadDetail(CardID, username);
+        show(PAGE_SALES_DETAIL);
+    }
+    
     public void openSalesDetail(String username, Integer CardID) {
+    	salesDetailPage.setBackAction(() -> show(PAGE_MARKETPLACE));
+    	salesDetailPage.setBackLabel("← Back to Marketplace");
         salesDetailPage.loadDetail(CardID, username);
         show(PAGE_SALES_DETAIL);
     }
