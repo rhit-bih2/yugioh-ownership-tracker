@@ -6,7 +6,7 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.io.IOException;
 import java.net.URL;
-import java.util.List;
+
 import java.util.function.Consumer;
 import javax.imageio.ImageIO;
 import javax.swing.Box;
@@ -21,11 +21,12 @@ import javax.swing.border.EmptyBorder;
 
 import yot.services.CardSearchService;
 import yot.services.MarketplaceService;
+import yot.services.SalesDetailService;
 import yot.services.DatabaseConnectionService;
 
 public class SalesDetailPage extends JPanel {
 
-    private final MarketplaceService marketplaceService;
+    private final SalesDetailService salesDetailService;
     private final CardSearchService cardSearchService;
     private final Consumer<Integer> onOpenCardDetail;
     private final Runnable onBack;
@@ -35,12 +36,12 @@ public class SalesDetailPage extends JPanel {
     private final JLabel storeNameLabel;
     private final JLabel phoneLabel;
     private final JLabel addressLabel;
-    private final JLabel cardIdLabel;
-    private final JLabel cardNameLabel;
-    private final JLabel cardDescLabel;
-    private final JLabel priceLabel;
     private final JLabel storeDescLabel;
-
+    private final JLabel cardNameLabel;
+    private final JLabel cardCodeLabel;
+    private final JLabel rarityLabel;
+    private final JLabel listingPriceLabel;
+    private final JLabel marketPriceLabel;
 
     private int currentCardId = -1;
 
@@ -48,9 +49,9 @@ public class SalesDetailPage extends JPanel {
                            Consumer<Integer> onOpenCardDetail) {
         this.onBack            = onBack;
         this.onOpenCardDetail  = onOpenCardDetail;
-        this.marketplaceService = new MarketplaceService(dbService);
+        this.salesDetailService = new SalesDetailService(dbService);
         this.cardSearchService  = new CardSearchService(dbService);
-        
+
         JPanel page = UiFactory.pageContainer();
 
         // ── Top bar ───────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ public class SalesDetailPage extends JPanel {
         contentRow.setAlignmentX(LEFT_ALIGNMENT);
         contentRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-        // ── Left: image fills the panel — no hint text ────────────────────────
+        // ── Left: image + button ──────────────────────────────────────────────
         JPanel imageCard = UiFactory.panelCard();
         imageCard.setLayout(new BoxLayout(imageCard, BoxLayout.Y_AXIS));
         imageCard.setBorder(new EmptyBorder(16, 16, 16, 16));
@@ -99,7 +100,6 @@ public class SalesDetailPage extends JPanel {
         imageLabel.setOpaque(true);
         imageLabel.setBackground(new Color(32, 42, 79));
         imageLabel.setForeground(Theme.MUTED);
-        // Image fills the entire panel interior (panel 394 - 32 padding = 362)
         imageLabel.setPreferredSize(new Dimension(362, 518));
         imageLabel.setMaximumSize(new Dimension(362, 518));
         imageLabel.setMinimumSize(new Dimension(362, 518));
@@ -112,12 +112,8 @@ public class SalesDetailPage extends JPanel {
                 if (currentCardId != -1) onOpenCardDetail.accept(currentCardId);
             }
         });
-
-        // Image fills the full panel — no hint label below
-     // Image fills the full panel — no hint label below
         imageCard.add(imageLabel);
 
-        // ── Button panels stacked below image ─────────────────────────────────
         JPanel cardDetailBtnCard = UiFactory.panelCard();
         cardDetailBtnCard.setLayout(new BoxLayout(cardDetailBtnCard, BoxLayout.Y_AXIS));
         cardDetailBtnCard.setBorder(new EmptyBorder(8, 16, 8, 16));
@@ -149,7 +145,7 @@ public class SalesDetailPage extends JPanel {
         rightStack.setOpaque(false);
         rightStack.setLayout(new BoxLayout(rightStack, BoxLayout.Y_AXIS));
 
-        // ── Right top: Seller Information ─────────────────────────────────────
+        // ── Seller Information panel ──────────────────────────────────────────
         JPanel sellerCard = UiFactory.panelCard();
         sellerCard.setLayout(new BoxLayout(sellerCard, BoxLayout.Y_AXIS));
         sellerCard.setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -168,20 +164,20 @@ public class SalesDetailPage extends JPanel {
         storeDescLabel.setForeground(Theme.MUTED);
         storeDescLabel.setFont(Theme.FONT.deriveFont(15f));
         storeDescLabel.setAlignmentX(LEFT_ALIGNMENT);
-        
-        sellerCard.add(infoRow("Username:",   sellerUsernameLabel));
+
+        sellerCard.add(infoRow("Username",   sellerUsernameLabel));
         sellerCard.add(Box.createVerticalStrut(12));
-        sellerCard.add(infoRow("Store Name:", storeNameLabel));
+        sellerCard.add(infoRow("Store Name", storeNameLabel));
         sellerCard.add(Box.createVerticalStrut(12));
-        sellerCard.add(infoRow("Phone:",      phoneLabel));
+        sellerCard.add(infoRow("Phone",      phoneLabel));
         sellerCard.add(Box.createVerticalStrut(12));
-        sellerCard.add(infoRow("Address:",    addressLabel));
+        sellerCard.add(infoRow("Address",    addressLabel));
         sellerCard.add(Box.createVerticalStrut(12));
-        sellerCard.add(styledFormLabel("Store Description:"));
+        sellerCard.add(styledFormLabel("Store Description"));
         sellerCard.add(Box.createVerticalStrut(6));
         sellerCard.add(storeDescLabel);
-      
-        // ── Right bottom: Card & Pricing ──────────────────────────────────────
+
+        // ── Card & Pricing panel ──────────────────────────────────────────────
         JPanel cardPriceCard = UiFactory.panelCard();
         cardPriceCard.setLayout(new BoxLayout(cardPriceCard, BoxLayout.Y_AXIS));
         cardPriceCard.setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -191,30 +187,33 @@ public class SalesDetailPage extends JPanel {
         cardPriceCard.add(UiFactory.sectionTitle("Card & Pricing"));
         cardPriceCard.add(Box.createVerticalStrut(14));
 
-        cardIdLabel   = styledValue();
         cardNameLabel = styledValue();
+        cardCodeLabel = styledValue();
+        rarityLabel   = styledValue();
 
-        priceLabel = new JLabel("—");
-        priceLabel.setForeground(Theme.ACCENT_ALT);
-        priceLabel.setFont(Theme.FONT_BOLD.deriveFont(26f));
-        priceLabel.setAlignmentX(LEFT_ALIGNMENT);
+        listingPriceLabel = new JLabel("—");
+        listingPriceLabel.setForeground(Theme.ACCENT_ALT);
+        listingPriceLabel.setFont(Theme.FONT_BOLD.deriveFont(26f));
+        listingPriceLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-        cardDescLabel = new JLabel("<html><body style='width:360px'>—</body></html>");
-        cardDescLabel.setForeground(Theme.MUTED);
-        cardDescLabel.setFont(Theme.FONT.deriveFont(15f));
-        cardDescLabel.setAlignmentX(LEFT_ALIGNMENT);
+        marketPriceLabel = new JLabel("—");
+        marketPriceLabel.setForeground(Theme.ACCENT);
+        marketPriceLabel.setFont(Theme.FONT_BOLD.deriveFont(20f));
+        marketPriceLabel.setAlignmentX(LEFT_ALIGNMENT);
 
-        cardPriceCard.add(infoRow("Card ID:",   cardIdLabel));
+        cardPriceCard.add(infoRow("Card Name", cardNameLabel));
         cardPriceCard.add(Box.createVerticalStrut(12));
-        cardPriceCard.add(infoRow("Card Name:", cardNameLabel));
-        cardPriceCard.add(Box.createVerticalStrut(16));
-        cardPriceCard.add(styledFormLabel("Card Description:"));
-        cardPriceCard.add(Box.createVerticalStrut(6));
-        cardPriceCard.add(cardDescLabel);
+        cardPriceCard.add(infoRow("Card Code", cardCodeLabel));
+        cardPriceCard.add(Box.createVerticalStrut(12));
+        cardPriceCard.add(infoRow("Rarity",    rarityLabel));
         cardPriceCard.add(Box.createVerticalStrut(20));
-        cardPriceCard.add(styledFormLabel("Listing Price:"));
+        cardPriceCard.add(styledFormLabel("Listing Price"));
         cardPriceCard.add(Box.createVerticalStrut(6));
-        cardPriceCard.add(priceLabel);
+        cardPriceCard.add(listingPriceLabel);
+        cardPriceCard.add(Box.createVerticalStrut(14));
+        cardPriceCard.add(styledFormLabel("Market Price"));
+        cardPriceCard.add(Box.createVerticalStrut(6));
+        cardPriceCard.add(marketPriceLabel);
         cardPriceCard.add(Box.createVerticalGlue());
 
         rightStack.add(sellerCard);
@@ -231,7 +230,7 @@ public class SalesDetailPage extends JPanel {
         add(UiFactory.scrollWrap(page), BorderLayout.CENTER);
     }
 
-    public void loadDetail(int cardId) {
+    public void loadDetail(int cardId, String username) {
         currentCardId = cardId;
 
         imageLabel.setIcon(null);
@@ -241,42 +240,44 @@ public class SalesDetailPage extends JPanel {
         phoneLabel.setText("—");
         addressLabel.setText("—");
         storeDescLabel.setText("<html><body style='width:360px'>—</body></html>");
-        cardIdLabel.setText("—");
         cardNameLabel.setText("—");
-        cardDescLabel.setText("<html><body style='width:360px'>—</body></html>");
-        priceLabel.setText("—");
+        cardCodeLabel.setText("—");
+        rarityLabel.setText("—");
+        listingPriceLabel.setText("—");
+        marketPriceLabel.setText("—");
 
-        List<String[]> details = marketplaceService.getSellerDetail(cardId);
+        // Use GetCardSalesDetail with both IDs for exact seller+card match
+        String[] d = salesDetailService.getCardSalesDetail(cardId, username);
 
-        if (details == null || details.isEmpty()) {
-            cardIdLabel.setText("Not found");
+        if (d == null) {
+            cardNameLabel.setText("Not found");
             revalidate();
             repaint();
             return;
         }
 
-        String[] d = details.get(0);
-
         // [0] SellerUsername  [1] SellerID   [2] StoreName      [3] Address
         // [4] City            [5] State      [6] ZipCode        [7] SellerDescription
-        // [8] Phone           [9] CardID     [10] CardName      [11] CardDescription
-        // [12] Price
+        // [8] Phone           [9] CardID     [10] CardName      [11] CardCode
+        // [12] Rarity         [13] ListingPrice                 [14] MarketPrice
         sellerUsernameLabel.setText(d[0]);
         storeNameLabel.setText(d[2]);
         phoneLabel.setText(d[8]);
         addressLabel.setText(d[3] + ", " + d[4] + ", " + d[5] + " " + d[6]);
-        cardIdLabel.setText(d[9]);
+        storeDescLabel.setText("<html><body style='width:360px'>" + d[7] + "</body></html>");
         cardNameLabel.setText(d[10]);
-        cardDescLabel.setText(
-                "<html><body style='width:360px'>" + d[11] + "</body></html>");
-        storeDescLabel.setText(
-        	    "<html><body style='width:360px'>" + d[7] + "</body></html>");
-
+        cardCodeLabel.setText(d[11]);
+        rarityLabel.setText(d[12]);
 
         try {
-            priceLabel.setText(String.format("$%.2f", Double.parseDouble(d[12])));
+            listingPriceLabel.setText(String.format("$%.2f", Double.parseDouble(d[13])));
         } catch (NumberFormatException e) {
-            priceLabel.setText("$" + d[12]);
+            listingPriceLabel.setText("$" + d[13]);
+        }
+        try {
+            marketPriceLabel.setText(String.format("$%.2f", Double.parseDouble(d[14])));
+        } catch (NumberFormatException e) {
+            marketPriceLabel.setText("$" + d[14]);
         }
 
         revalidate();
@@ -297,7 +298,6 @@ public class SalesDetailPage extends JPanel {
                     SwingUtilities.invokeLater(() -> imageLabel.setText("No Image"));
                     return;
                 }
-                // Scale to exactly fill the image label
                 Image scaled = raw.getScaledInstance(362, 518, Image.SCALE_SMOOTH);
                 SwingUtilities.invokeLater(() -> {
                     imageLabel.setIcon(new ImageIcon(scaled));
@@ -309,9 +309,6 @@ public class SalesDetailPage extends JPanel {
         }).start();
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /** Value label — larger bold white text */
     private JLabel styledValue() {
         JLabel lbl = new JLabel("—");
         lbl.setForeground(Theme.TEXT);
@@ -320,7 +317,6 @@ public class SalesDetailPage extends JPanel {
         return lbl;
     }
 
-    /** Form label — larger muted text */
     private JLabel styledFormLabel(String text) {
         JLabel lbl = new JLabel(text);
         lbl.setForeground(Theme.MUTED);
@@ -329,16 +325,13 @@ public class SalesDetailPage extends JPanel {
         return lbl;
     }
 
-    /** Row with fixed-width label column so values align */
     private JPanel infoRow(String labelText, JLabel valueLabel) {
         JPanel row = UiFactory.rowPanel();
         row.setAlignmentX(LEFT_ALIGNMENT);
         row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
-
         JLabel lbl = styledFormLabel(labelText);
         lbl.setPreferredSize(new Dimension(120, 24));
         lbl.setMinimumSize(new Dimension(120, 24));
-
         row.add(lbl);
         row.add(Box.createHorizontalStrut(12));
         row.add(valueLabel);

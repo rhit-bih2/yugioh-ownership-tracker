@@ -31,7 +31,7 @@ public class AppNavigator {
         this.container = container;
         this.onPageChanged = onPageChanged;
 
-        detailPage = new CollectionDetailPage(() -> show(PAGE_COLLECTIONS), this::openCardDetail, dbService, username);
+        detailPage = new CollectionDetailPage(() -> show(PAGE_COLLECTIONS), this::openCardDetailFromCollection, dbService, username);
         container.add(new CollectionsPage(this::openCollectionDetail, dbService, username), PAGE_COLLECTIONS);
         container.add(detailPage, PAGE_DETAIL);
         container.add(new PlaceholderPage("Trade", "Trade workflow content will be added later."), PAGE_TRADE);
@@ -72,9 +72,15 @@ public class AppNavigator {
         show(PAGE_CARD_DETAIL);
     }
 
+    public void openCardDetailFromCollection(Integer cardID) {
+        cardDetailPage.setBackAction(() -> show(PAGE_DETAIL));
+        cardDetailPage.setBackLabel("← Back to Collection");
+        cardDetailPage.setCardData(cardID);
+        show(PAGE_CARD_DETAIL);
+    }
     
-    public void openSalesDetail(Integer cardID) {
-        salesDetailPage.loadDetail(cardID);
+    public void openSalesDetail(String username, Integer CardID) {
+        salesDetailPage.loadDetail(CardID, username);
         show(PAGE_SALES_DETAIL);
     }
 

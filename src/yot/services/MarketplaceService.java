@@ -16,12 +16,12 @@ public class MarketplaceService {
         this.dbService = dbService;
     }
 
-    public List<Integer> searchListings(Map<String, String> map) {
+    public List<Integer> retrieveCard(Map<String, String> map) {
         List<Integer> list = new ArrayList<>();
-        Connection conn = dbService.getConnection();
+        Connection conn = this.dbService.getConnection();
+        String query = "{CALL RetrieveCard(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}";
         CallableStatement cs = null;
-        String query = "{CALL GetListingCards(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)}";
-
+        
         try {
         	cs = conn.prepareCall(query);
             setNullable(cs, 1,  map.get("Name"),        java.sql.Types.NVARCHAR);
@@ -38,72 +38,49 @@ public class MarketplaceService {
 
             ResultSet rs = cs.executeQuery();
             while (rs.next()) {
-                list.add(rs.getInt("CardID"));
+                list.add(rs.getInt("ID"));
             }
             rs.close();
 
         } catch (SQLException e) {
-            System.out.println("Error calling GetListingCards.");
+            System.out.println("Error calling RetrieveCard stored procedure.");
             e.printStackTrace();
         }
-
         return list;
     }
 
-    /**
-     * Calls [dbo].[GetSellerDetail] with CardID
-     * Returns a list of String[] — one row per seller listing this card.
-     *
-     * Indices:
-     *   [0]  SellerUsername
-     *   [1]  SellerID
-     *   [2]  StoreName
-     *   [3]  Address
-     *   [4]  City
-     *   [5]  State
-     *   [6]  ZipCode
-     *   [7]  SellerDescription
-     *   [8]  Phone
-     *   [9]  CardID
-     *   [10] CardName
-     *   [11] CardDescription
-     *   [12] Price
-     */
-    public List<String[]> getSellerDetail(int cardId) {
+    public List<String[]> getListingDetail(int cardId) {
         List<String[]> results = new ArrayList<>();
         Connection conn = dbService.getConnection();
         CallableStatement cs = null;
-        String query = "{CALL GetSellerDetail(?)}";
-
-        try {
+        String query = "{CALL GetListingDetail(?)}";
+ 
+        try { 
         	cs = conn.prepareCall(query);
             cs.setInt(1, cardId);
             ResultSet rs = cs.executeQuery();
-
+ 
             while (rs.next()) {
-                String[] row = new String[13];
-                row[0]  = nullDataHandle(rs, "SellerUsername");
-                row[1]  = nullDataHandle(rs, "SellerID");
-                row[2]  = nullDataHandle(rs, "StoreName");
-                row[3]  = nullDataHandle(rs, "Address");
-                row[4]  = nullDataHandle(rs, "City");
-                row[5]  = nullDataHandle(rs, "State");
-                row[6]  = nullDataHandle(rs, "ZipCode");
-                row[7]  = nullDataHandle(rs, "SellerDescription");
-                row[8]  = nullDataHandle(rs, "Phone");
-                row[9]  = nullDataHandle(rs, "CardID");
-                row[10] = nullDataHandle(rs, "CardName");
-                row[11] = nullDataHandle(rs, "CardDescription");
-                row[12] = nullDataHandle(rs, "Price");
+                String[] row = new String[10];
+                row[0] = nullDataHandle(rs, "SellerUsername");
+                row[1] = nullDataHandle(rs, "SellerID");
+                row[2] = nullDataHandle(rs, "StoreName");
+                row[3] = nullDataHandle(rs, "Phone");
+                row[4] = nullDataHandle(rs, "CardID");
+                row[5] = nullDataHandle(rs, "CardName");
+                row[6] = nullDataHandle(rs, "CardCode");
+                row[7] = nullDataHandle(rs, "Rarity");
+                row[8] = nullDataHandle(rs, "ListingPrice");
+                row[9] = nullDataHandle(rs, "MarketPrice");
                 results.add(row);
             }
             rs.close();
-
+ 
         } catch (SQLException e) {
-            System.out.println("Error calling GetSellerDetail.");
+            System.out.println("Error calling GetListingDetail.");
             e.printStackTrace();
         }
-
+ 
         return results;
     }
 

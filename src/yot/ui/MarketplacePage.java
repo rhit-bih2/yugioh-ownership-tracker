@@ -7,6 +7,7 @@ import java.awt.Image;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -16,6 +17,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -28,15 +30,20 @@ public class MarketplacePage extends JPanel {
 
     private final MarketplaceService marketplaceService;
     private final CardSearchService cardSearchService;
-    private final Consumer<Integer> onOpenSalesDetail;
-    private final JPanel listingDetailPanel;
+
+    private final BiConsumer<String, Integer> onOpenSalesDetail;
+    private final Consumer<Integer> onOpenCardDetail;
+
+    private final JPanel listingDetailWrapper;
+    private final JPanel listingRowsPanel;
 
     public MarketplacePage(DatabaseConnectionService dbService,
                            Consumer<Integer> onOpenCardDetail,
-                           Consumer<Integer> onOpenSalesDetail) {
+                           BiConsumer<String, Integer>  onOpenSalesDetail) {
         this.marketplaceService = new MarketplaceService(dbService);
         this.cardSearchService  = new CardSearchService(dbService);
         this.onOpenSalesDetail  = onOpenSalesDetail;
+        this.onOpenCardDetail   = onOpenCardDetail;
 
         JPanel page = UiFactory.pageContainer();
 
@@ -45,7 +52,7 @@ public class MarketplacePage extends JPanel {
         page.add(Box.createVerticalStrut(14));
 
         JPanel searchBox = new CardSearchPanel(
-                marketplaceService::searchListings,
+                marketplaceService::retrieveCard,
                 this::onCardClicked,
                 dbService
         );
@@ -54,67 +61,77 @@ public class MarketplacePage extends JPanel {
         page.add(searchBox);
         page.add(Box.createVerticalStrut(14));
 
-        listingDetailPanel = UiFactory.panelCard();
-        listingDetailPanel.setLayout(new BoxLayout(listingDetailPanel, BoxLayout.Y_AXIS));
-        listingDetailPanel.setBorder(new EmptyBorder(16, 16, 16, 16));
-        listingDetailPanel.setVisible(false);
-        listingDetailPanel.setAlignmentX(LEFT_ALIGNMENT);
-        listingDetailPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        // ── Listing detail wrapper ────────────────────────────────────────────
+        listingDetailWrapper = UiFactory.panelCard();
+        listingDetailWrapper.setLayout(new BoxLayout(listingDetailWrapper, BoxLayout.Y_AXIS));
+        listingDetailWrapper.setBorder(new EmptyBorder(16, 16, 16, 16));
+        listingDetailWrapper.setVisible(false);
+        listingDetailWrapper.setAlignmentX(LEFT_ALIGNMENT);
+        listingDetailWrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
 
-        page.add(listingDetailPanel);
+        listingDetailWrapper.add(UiFactory.sectionTitle("Listings for This Card"));
+        listingDetailWrapper.add(Box.createVerticalStrut(12));
+
+        // Scrollable rows panel
+        listingRowsPanel = new JPanel();
+        listingRowsPanel.setOpaque(false);
+        listingRowsPanel.setLayout(new BoxLayout(listingRowsPanel, BoxLayout.Y_AXIS));
+        listingRowsPanel.setAlignmentX(LEFT_ALIGNMENT);
+
+        JScrollPane scrollPane = UiFactory.scrollWrap(listingRowsPanel);
+        scrollPane.setAlignmentX(LEFT_ALIGNMENT);
+        scrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+
+        listingDetailWrapper.add(scrollPane);
+        page.add(listingDetailWrapper);
         page.add(Box.createVerticalGlue());
 
         setLayout(new BorderLayout());
         setOpaque(false);
-        add(page, BorderLayout.CENTER);
+        add(UiFactory.scrollWrap(page), BorderLayout.CENTER);
     }
 
     private void onCardClicked(Integer cardId) {
-        listingDetailPanel.setVisible(false);
-        listingDetailPanel.removeAll();
-        listingDetailPanel.add(UiFactory.sectionTitle("Listing Detail"));
-        listingDetailPanel.add(Box.createVerticalStrut(12));
+        listingDetailWrapper.setVisible(false);
+        listingRowsPanel.removeAll();
 
-        List<String[]> sellers = marketplaceService.getSellerDetail(cardId);
+        // Use GetListingDetail — one row per seller
+        List<String[]> listings = marketplaceService.getListingDetail(cardId);
         String imageUrl = cardSearchService.getCardImageUrl(cardId);
 
-        if (sellers == null || sellers.isEmpty()) {
+        if (listings == null || listings.isEmpty()) {
             JLabel none = new JLabel("No listings found for this card.");
             none.setForeground(Theme.MUTED);
             none.setFont(Theme.FONT_BOLD.deriveFont(16f));
             none.setAlignmentX(LEFT_ALIGNMENT);
-            listingDetailPanel.add(none);
-            listingDetailPanel.setVisible(true);
-            listingDetailPanel.revalidate();
-            listingDetailPanel.repaint();
+            listingRowsPanel.add(none);
+            listingDetailWrapper.setVisible(true);
+            listingDetailWrapper.revalidate();
+            listingDetailWrapper.repaint();
             return;
         }
 
-        for (int i = 0; i < sellers.size(); i++) {
-            listingDetailPanel.add(buildListingRow(sellers.get(i), imageUrl, cardId));
-            if (i < sellers.size() - 1) {
-                listingDetailPanel.add(Box.createVerticalStrut(10));
+        for (int i = 0; i < listings.size(); i++) {
+            listingRowsPanel.add(buildListingRow(listings.get(i), imageUrl, cardId));
+            if (i < listings.size() - 1) {
+                listingRowsPanel.add(Box.createVerticalStrut(10));
             }
         }
 
-        listingDetailPanel.setVisible(true);
-        listingDetailPanel.revalidate();
-        listingDetailPanel.repaint();
+        listingDetailWrapper.setVisible(true);
+        listingDetailWrapper.revalidate();
+        listingDetailWrapper.repaint();
     }
 
     /**
-     * 3-column layout:
-     *   Col 1: Card ID + Seller + Phone
-     *   Col 2: Card Name + Store + Price
-     *   Col 3: (spacer) + Sales Detail button bottom
-     *
-     * seller indices:
-     *   [0] SellerUsername  [1] SellerID   [2] StoreName    [3] Address
-     *   [4] City            [5] State      [6] ZipCode      [7] SellerDescription
-     *   [8] Phone           [9] CardID     [10] CardName    [11] CardDescription
-     *   [12] Price
+     * One listing row per seller using GetListingDetail indices:
+     *   [0] SellerUsername  [1] SellerID  [2] StoreName  [3] Phone
+     *   [4] CardID          [5] CardName  [6] CardCode   [7] Rarity
+     *   [8] ListingPrice    [9] MarketPrice
      */
-    private JPanel buildListingRow(String[] seller, String imageUrl, int cardId) {
+    private JPanel buildListingRow(String[] listing, String imageUrl, int cardId) {
+        String sellerusername = listing[0];
+
         JPanel row = new JPanel();
         row.setBackground(new Color(35, 45, 80));
         row.setBorder(BorderFactory.createCompoundBorder(
@@ -123,7 +140,7 @@ public class MarketplacePage extends JPanel {
         ));
         row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
         row.setAlignmentX(LEFT_ALIGNMENT);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 220));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 230));
 
         // ── Card image — click → SalesDetail ─────────────────────────────────
         JLabel imgLabel = new JLabel("Loading…", SwingConstants.CENTER);
@@ -139,7 +156,7 @@ public class MarketplacePage extends JPanel {
         imgLabel.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                onOpenSalesDetail.accept(cardId);
+                onOpenSalesDetail.accept(sellerusername, cardId);
             }
         });
 
@@ -164,70 +181,71 @@ public class MarketplacePage extends JPanel {
             }
         }).start();
 
-        // ── Column 1: Card ID, Seller, Phone ─────────────────────────────────
+        // ── Col 1: Card Name, Seller, Phone ──────────────────────────────────
         JPanel col1 = new JPanel();
         col1.setOpaque(false);
         col1.setLayout(new BoxLayout(col1, BoxLayout.Y_AXIS));
-        col1.add(infoCell("Card ID", seller[9]));
-        col1.add(Box.createVerticalStrut(14));
-        col1.add(infoCell("Seller",  seller[0]));
-        col1.add(Box.createVerticalStrut(14));
-        col1.add(infoCell("Phone",   seller[8]));
+        col1.add(infoCell("Card Name", listing[5]));
+        col1.add(Box.createVerticalStrut(12));
+        col1.add(infoCell("Seller",    listing[0]));
+        col1.add(Box.createVerticalStrut(12));
+        col1.add(infoCell("Phone",     listing[3]));
 
-        // ── Column 2: Card Name, Store, Price ────────────────────────────────
+        // ── Col 2: Card Code, Store, Rarity ──────────────────────────────────
         JPanel col2 = new JPanel();
         col2.setOpaque(false);
         col2.setLayout(new BoxLayout(col2, BoxLayout.Y_AXIS));
-        col2.add(infoCell("Card Name", seller[10]));
-        col2.add(Box.createVerticalStrut(14));
-        col2.add(infoCell("Store",     seller[2]));
-        col2.add(Box.createVerticalStrut(14));
+        col2.add(infoCell("Card Code", listing[6]));
+        col2.add(Box.createVerticalStrut(12));
+        col2.add(infoCell("Store",     listing[2]));
+        col2.add(Box.createVerticalStrut(12));
+        col2.add(infoCell("Rarity",    listing[7]));
 
-        // Price with accent color
-        JPanel priceCell = new JPanel();
-        priceCell.setOpaque(false);
-        priceCell.setLayout(new BoxLayout(priceCell, BoxLayout.Y_AXIS));
-        JLabel priceLbl = UiFactory.formLabel("Price");
-        priceLbl.setFont(Theme.FONT.deriveFont(13f));
-        priceLbl.setAlignmentX(LEFT_ALIGNMENT);
-        String priceText;
-        try {
-            priceText = String.format("$%.2f", Double.parseDouble(seller[12]));
-        } catch (NumberFormatException e) {
-            priceText = "$" + seller[12];
-        }
-        JLabel priceVal = new JLabel(priceText);
-        priceVal.setForeground(Theme.ACCENT_ALT);
-        priceVal.setFont(Theme.FONT_BOLD.deriveFont(18f));
-        priceVal.setAlignmentX(LEFT_ALIGNMENT);
-        priceCell.add(priceLbl);
-        priceCell.add(Box.createVerticalStrut(2));
-        priceCell.add(priceVal);
-        col2.add(priceCell);
-
-        // ── Column 3: Sales Detail button pinned to bottom ────────────────────
+        // ── Col 3: Listing Price, Market Price ───────────────────────────────
         JPanel col3 = new JPanel();
         col3.setOpaque(false);
         col3.setLayout(new BoxLayout(col3, BoxLayout.Y_AXIS));
-        col3.add(Box.createVerticalGlue());
+
+        String listingPriceText;
+        try {
+            listingPriceText = String.format("$%.2f", Double.parseDouble(listing[8]));
+        } catch (NumberFormatException e) {
+            listingPriceText = "$" + listing[8];
+        }
+        String marketPriceText;
+        try {
+            marketPriceText = String.format("$%.2f", Double.parseDouble(listing[9]));
+        } catch (NumberFormatException e) {
+            marketPriceText = "$" + listing[9];
+        }
+
+        col3.add(pricedCell("Listing Price", listingPriceText, Theme.ACCENT_ALT));
+        col3.add(Box.createVerticalStrut(12));
+        col3.add(pricedCell("Market Price",  marketPriceText,  Theme.ACCENT));
+
+        // ── Sales Detail button ───────────────────────────────────────────────
+        JPanel btnPanel = new JPanel();
+        btnPanel.setOpaque(false);
+        btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.Y_AXIS));
+        btnPanel.add(Box.createVerticalGlue());
         JButton salesDetailBtn = UiFactory.primaryButton("Sales Detail");
         salesDetailBtn.setAlignmentX(CENTER_ALIGNMENT);
-        salesDetailBtn.addActionListener(e -> onOpenSalesDetail.accept(cardId));
-        col3.add(salesDetailBtn);
+        salesDetailBtn.addActionListener(e ->
+                onOpenSalesDetail.accept(sellerusername, cardId));
+        btnPanel.add(salesDetailBtn);
 
         row.add(imgLabel);
-        row.add(Box.createHorizontalStrut(20));
+        row.add(Box.createHorizontalStrut(16));
         row.add(col1);
-        row.add(Box.createHorizontalStrut(32));
+        row.add(Box.createHorizontalStrut(24));
         row.add(col2);
-        row.add(Box.createHorizontalGlue());
+        row.add(Box.createHorizontalStrut(24));
         row.add(col3);
+        row.add(Box.createHorizontalGlue());
+        row.add(btnPanel);
         return row;
     }
 
-    /**
-     * Builds a label + value cell with larger fonts for readability.
-     */
     private JPanel infoCell(String label, String value) {
         JPanel cell = new JPanel();
         cell.setOpaque(false);
@@ -237,7 +255,24 @@ public class MarketplacePage extends JPanel {
         lbl.setAlignmentX(LEFT_ALIGNMENT);
         JLabel val = new JLabel(value);
         val.setForeground(Theme.TEXT);
-        val.setFont(Theme.FONT_BOLD.deriveFont(16f));
+        val.setFont(Theme.FONT_BOLD.deriveFont(15f));
+        val.setAlignmentX(LEFT_ALIGNMENT);
+        cell.add(lbl);
+        cell.add(Box.createVerticalStrut(2));
+        cell.add(val);
+        return cell;
+    }
+
+    private JPanel pricedCell(String label, String value, java.awt.Color valueColor) {
+        JPanel cell = new JPanel();
+        cell.setOpaque(false);
+        cell.setLayout(new BoxLayout(cell, BoxLayout.Y_AXIS));
+        JLabel lbl = UiFactory.formLabel(label);
+        lbl.setFont(Theme.FONT.deriveFont(13f));
+        lbl.setAlignmentX(LEFT_ALIGNMENT);
+        JLabel val = new JLabel(value);
+        val.setForeground(valueColor);
+        val.setFont(Theme.FONT_BOLD.deriveFont(17f));
         val.setAlignmentX(LEFT_ALIGNMENT);
         cell.add(lbl);
         cell.add(Box.createVerticalStrut(2));
