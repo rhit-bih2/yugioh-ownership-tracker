@@ -78,11 +78,7 @@ public class MarketplacePage extends JPanel {
         listingRowsPanel.setLayout(new BoxLayout(listingRowsPanel, BoxLayout.Y_AXIS));
         listingRowsPanel.setAlignmentX(LEFT_ALIGNMENT);
 
-        JScrollPane scrollPane = UiFactory.scrollWrap(listingRowsPanel);
-        scrollPane.setAlignmentX(LEFT_ALIGNMENT);
-        scrollPane.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
-
-        listingDetailWrapper.add(scrollPane);
+        listingDetailWrapper.add(listingRowsPanel);
         page.add(listingDetailWrapper);
         page.add(Box.createVerticalGlue());
 

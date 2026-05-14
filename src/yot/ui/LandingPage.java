@@ -115,7 +115,7 @@ public class LandingPage extends JPanel {
     		LandingPage.username = username;
     		loginFn.accept(username);
 		} else {
-			JOptionPane.showMessageDialog(null, "Username already exists.");
+			JOptionPane.showMessageDialog(null, "Invalid username.");
 		}
     }
     

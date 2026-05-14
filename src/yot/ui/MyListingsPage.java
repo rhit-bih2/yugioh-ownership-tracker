@@ -77,7 +77,7 @@ public class MyListingsPage extends JPanel {
 		listingsBody.setLayout(new BoxLayout(listingsBody, BoxLayout.Y_AXIS));
 		listingsBody.setAlignmentX(LEFT_ALIGNMENT);
 
-		listCard.add(UiFactory.scrollWrap(listingsBody));
+		listCard.add(listingsBody);
 		page.add(listCard);
 
 		add(UiFactory.scrollWrap(page));
