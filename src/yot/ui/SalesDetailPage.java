@@ -1,0 +1,348 @@
+package yot.ui;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Image;
+import java.io.IOException;
+import java.net.URL;
+import java.util.List;
+import java.util.function.Consumer;
+import javax.imageio.ImageIO;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
+
+import yot.services.CardSearchService;
+import yot.services.MarketplaceService;
+import yot.services.DatabaseConnectionService;
+
+public class SalesDetailPage extends JPanel {
+
+    private final MarketplaceService marketplaceService;
+    private final CardSearchService cardSearchService;
+    private final Consumer<Integer> onOpenCardDetail;
+    private final Runnable onBack;
+
+    private final JLabel imageLabel;
+    private final JLabel sellerUsernameLabel;
+    private final JLabel storeNameLabel;
+    private final JLabel phoneLabel;
+    private final JLabel addressLabel;
+    private final JLabel cardIdLabel;
+    private final JLabel cardNameLabel;
+    private final JLabel cardDescLabel;
+    private final JLabel priceLabel;
+    private final JLabel storeDescLabel;
+
+
+    private int currentCardId = -1;
+
+    public SalesDetailPage(Runnable onBack, DatabaseConnectionService dbService,
+                           Consumer<Integer> onOpenCardDetail) {
+        this.onBack            = onBack;
+        this.onOpenCardDetail  = onOpenCardDetail;
+        this.marketplaceService = new MarketplaceService(dbService);
+        this.cardSearchService  = new CardSearchService(dbService);
+        
+        JPanel page = UiFactory.pageContainer();
+
+        // ── Top bar ───────────────────────────────────────────────────────────
+        JPanel top = UiFactory.rowPanel();
+        top.setAlignmentX(LEFT_ALIGNMENT);
+        top.setMaximumSize(new Dimension(Integer.MAX_VALUE, 72));
+
+        JPanel header = new JPanel();
+        header.setOpaque(false);
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
+
+        JLabel titleLabel = new JLabel("Card Sales Detail");
+        titleLabel.setFont(Theme.FONT_PAGE);
+        titleLabel.setForeground(Theme.TEXT);
+
+        JLabel sub = new JLabel("Full seller and listing information for this card.");
+        sub.setForeground(Theme.MUTED);
+
+        header.add(titleLabel);
+        header.add(Box.createVerticalStrut(4));
+        header.add(sub);
+
+        JButton back = UiFactory.outlineButton("← Back to Marketplace");
+        back.addActionListener(e -> onBack.run());
+
+        top.add(header);
+        top.add(Box.createHorizontalGlue());
+        top.add(back);
+        page.add(top);
+        page.add(Box.createVerticalStrut(14));
+
+        // ── Content row ───────────────────────────────────────────────────────
+        JPanel contentRow = UiFactory.rowPanel();
+        contentRow.setAlignmentX(LEFT_ALIGNMENT);
+        contentRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+
+        // ── Left: image fills the panel — no hint text ────────────────────────
+        JPanel imageCard = UiFactory.panelCard();
+        imageCard.setLayout(new BoxLayout(imageCard, BoxLayout.Y_AXIS));
+        imageCard.setBorder(new EmptyBorder(16, 16, 16, 16));
+        imageCard.setPreferredSize(new Dimension(394, 550));
+        imageCard.setMaximumSize(new Dimension(394, 550));
+        imageCard.setMinimumSize(new Dimension(394, 550));
+
+        imageLabel = new JLabel("Loading…", SwingConstants.CENTER);
+        imageLabel.setOpaque(true);
+        imageLabel.setBackground(new Color(32, 42, 79));
+        imageLabel.setForeground(Theme.MUTED);
+        // Image fills the entire panel interior (panel 394 - 32 padding = 362)
+        imageLabel.setPreferredSize(new Dimension(362, 518));
+        imageLabel.setMaximumSize(new Dimension(362, 518));
+        imageLabel.setMinimumSize(new Dimension(362, 518));
+        imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        imageLabel.setVerticalAlignment(SwingConstants.CENTER);
+        imageLabel.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        imageLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (currentCardId != -1) onOpenCardDetail.accept(currentCardId);
+            }
+        });
+
+        // Image fills the full panel — no hint label below
+     // Image fills the full panel — no hint label below
+        imageCard.add(imageLabel);
+
+        // ── Button panels stacked below image ─────────────────────────────────
+        JPanel cardDetailBtnCard = UiFactory.panelCard();
+        cardDetailBtnCard.setLayout(new BoxLayout(cardDetailBtnCard, BoxLayout.Y_AXIS));
+        cardDetailBtnCard.setBorder(new EmptyBorder(8, 16, 8, 16));
+        cardDetailBtnCard.setPreferredSize(new Dimension(394, 44));
+        cardDetailBtnCard.setMaximumSize(new Dimension(394, 44));
+        cardDetailBtnCard.setMinimumSize(new Dimension(394, 44));
+        JButton cardDetailBtn = UiFactory.primaryButton("View Card Detail");
+        cardDetailBtn.setAlignmentX(CENTER_ALIGNMENT);
+        cardDetailBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        cardDetailBtn.setMinimumSize(new Dimension(362, 28));
+        cardDetailBtn.setPreferredSize(new Dimension(362, 28));
+        cardDetailBtn.addActionListener(e -> {
+            if (currentCardId != -1) onOpenCardDetail.accept(currentCardId);
+        });
+        cardDetailBtnCard.add(UiFactory.fillButton(cardDetailBtn));
+
+        JPanel leftStack = new JPanel();
+        leftStack.setOpaque(false);
+        leftStack.setLayout(new BoxLayout(leftStack, BoxLayout.Y_AXIS));
+        leftStack.add(imageCard);
+        leftStack.add(Box.createVerticalStrut(8));
+        leftStack.add(cardDetailBtnCard);
+
+        contentRow.add(leftStack);
+        contentRow.add(Box.createHorizontalStrut(14));
+
+        // ── Right stack ───────────────────────────────────────────────────────
+        JPanel rightStack = new JPanel();
+        rightStack.setOpaque(false);
+        rightStack.setLayout(new BoxLayout(rightStack, BoxLayout.Y_AXIS));
+
+        // ── Right top: Seller Information ─────────────────────────────────────
+        JPanel sellerCard = UiFactory.panelCard();
+        sellerCard.setLayout(new BoxLayout(sellerCard, BoxLayout.Y_AXIS));
+        sellerCard.setBorder(new EmptyBorder(20, 20, 20, 20));
+        sellerCard.setAlignmentX(LEFT_ALIGNMENT);
+        sellerCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+
+        sellerCard.add(UiFactory.sectionTitle("Seller Information"));
+        sellerCard.add(Box.createVerticalStrut(14));
+
+        sellerUsernameLabel = styledValue();
+        storeNameLabel      = styledValue();
+        phoneLabel          = styledValue();
+        addressLabel        = styledValue();
+
+        storeDescLabel = new JLabel("<html><body style='width:360px'>—</body></html>");
+        storeDescLabel.setForeground(Theme.MUTED);
+        storeDescLabel.setFont(Theme.FONT.deriveFont(15f));
+        storeDescLabel.setAlignmentX(LEFT_ALIGNMENT);
+        
+        sellerCard.add(infoRow("Username:",   sellerUsernameLabel));
+        sellerCard.add(Box.createVerticalStrut(12));
+        sellerCard.add(infoRow("Store Name:", storeNameLabel));
+        sellerCard.add(Box.createVerticalStrut(12));
+        sellerCard.add(infoRow("Phone:",      phoneLabel));
+        sellerCard.add(Box.createVerticalStrut(12));
+        sellerCard.add(infoRow("Address:",    addressLabel));
+        sellerCard.add(Box.createVerticalStrut(12));
+        sellerCard.add(styledFormLabel("Store Description:"));
+        sellerCard.add(Box.createVerticalStrut(6));
+        sellerCard.add(storeDescLabel);
+      
+        // ── Right bottom: Card & Pricing ──────────────────────────────────────
+        JPanel cardPriceCard = UiFactory.panelCard();
+        cardPriceCard.setLayout(new BoxLayout(cardPriceCard, BoxLayout.Y_AXIS));
+        cardPriceCard.setBorder(new EmptyBorder(20, 20, 20, 20));
+        cardPriceCard.setAlignmentX(LEFT_ALIGNMENT);
+        cardPriceCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+
+        cardPriceCard.add(UiFactory.sectionTitle("Card & Pricing"));
+        cardPriceCard.add(Box.createVerticalStrut(14));
+
+        cardIdLabel   = styledValue();
+        cardNameLabel = styledValue();
+
+        priceLabel = new JLabel("—");
+        priceLabel.setForeground(Theme.ACCENT_ALT);
+        priceLabel.setFont(Theme.FONT_BOLD.deriveFont(26f));
+        priceLabel.setAlignmentX(LEFT_ALIGNMENT);
+
+        cardDescLabel = new JLabel("<html><body style='width:360px'>—</body></html>");
+        cardDescLabel.setForeground(Theme.MUTED);
+        cardDescLabel.setFont(Theme.FONT.deriveFont(15f));
+        cardDescLabel.setAlignmentX(LEFT_ALIGNMENT);
+
+        cardPriceCard.add(infoRow("Card ID:",   cardIdLabel));
+        cardPriceCard.add(Box.createVerticalStrut(12));
+        cardPriceCard.add(infoRow("Card Name:", cardNameLabel));
+        cardPriceCard.add(Box.createVerticalStrut(16));
+        cardPriceCard.add(styledFormLabel("Card Description:"));
+        cardPriceCard.add(Box.createVerticalStrut(6));
+        cardPriceCard.add(cardDescLabel);
+        cardPriceCard.add(Box.createVerticalStrut(20));
+        cardPriceCard.add(styledFormLabel("Listing Price:"));
+        cardPriceCard.add(Box.createVerticalStrut(6));
+        cardPriceCard.add(priceLabel);
+        cardPriceCard.add(Box.createVerticalGlue());
+
+        rightStack.add(sellerCard);
+        rightStack.add(Box.createVerticalStrut(12));
+        rightStack.add(cardPriceCard);
+        rightStack.add(Box.createVerticalGlue());
+
+        contentRow.add(rightStack);
+        page.add(contentRow);
+        page.add(Box.createVerticalGlue());
+
+        setLayout(new BorderLayout());
+        setOpaque(false);
+        add(UiFactory.scrollWrap(page), BorderLayout.CENTER);
+    }
+
+    public void loadDetail(int cardId) {
+        currentCardId = cardId;
+
+        imageLabel.setIcon(null);
+        imageLabel.setText("Loading…");
+        sellerUsernameLabel.setText("—");
+        storeNameLabel.setText("—");
+        phoneLabel.setText("—");
+        addressLabel.setText("—");
+        storeDescLabel.setText("<html><body style='width:360px'>—</body></html>");
+        cardIdLabel.setText("—");
+        cardNameLabel.setText("—");
+        cardDescLabel.setText("<html><body style='width:360px'>—</body></html>");
+        priceLabel.setText("—");
+
+        List<String[]> details = marketplaceService.getSellerDetail(cardId);
+
+        if (details == null || details.isEmpty()) {
+            cardIdLabel.setText("Not found");
+            revalidate();
+            repaint();
+            return;
+        }
+
+        String[] d = details.get(0);
+
+        // [0] SellerUsername  [1] SellerID   [2] StoreName      [3] Address
+        // [4] City            [5] State      [6] ZipCode        [7] SellerDescription
+        // [8] Phone           [9] CardID     [10] CardName      [11] CardDescription
+        // [12] Price
+        sellerUsernameLabel.setText(d[0]);
+        storeNameLabel.setText(d[2]);
+        phoneLabel.setText(d[8]);
+        addressLabel.setText(d[3] + ", " + d[4] + ", " + d[5] + " " + d[6]);
+        cardIdLabel.setText(d[9]);
+        cardNameLabel.setText(d[10]);
+        cardDescLabel.setText(
+                "<html><body style='width:360px'>" + d[11] + "</body></html>");
+        storeDescLabel.setText(
+        	    "<html><body style='width:360px'>" + d[7] + "</body></html>");
+
+
+        try {
+            priceLabel.setText(String.format("$%.2f", Double.parseDouble(d[12])));
+        } catch (NumberFormatException e) {
+            priceLabel.setText("$" + d[12]);
+        }
+
+        revalidate();
+        repaint();
+
+        String imageUrl = cardSearchService.getCardImageUrl(cardId);
+        new Thread(() -> {
+            if (imageUrl == null || imageUrl.equals("—")) {
+                SwingUtilities.invokeLater(() -> {
+                    imageLabel.setIcon(null);
+                    imageLabel.setText("No Image");
+                });
+                return;
+            }
+            try {
+                Image raw = ImageIO.read(new URL(imageUrl));
+                if (raw == null) {
+                    SwingUtilities.invokeLater(() -> imageLabel.setText("No Image"));
+                    return;
+                }
+                // Scale to exactly fill the image label
+                Image scaled = raw.getScaledInstance(362, 518, Image.SCALE_SMOOTH);
+                SwingUtilities.invokeLater(() -> {
+                    imageLabel.setIcon(new ImageIcon(scaled));
+                    imageLabel.setText(null);
+                });
+            } catch (IOException e) {
+                SwingUtilities.invokeLater(() -> imageLabel.setText("Image unavailable"));
+            }
+        }).start();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Value label — larger bold white text */
+    private JLabel styledValue() {
+        JLabel lbl = new JLabel("—");
+        lbl.setForeground(Theme.TEXT);
+        lbl.setFont(Theme.FONT_BOLD.deriveFont(17f));
+        lbl.setAlignmentX(LEFT_ALIGNMENT);
+        return lbl;
+    }
+
+    /** Form label — larger muted text */
+    private JLabel styledFormLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setForeground(Theme.MUTED);
+        lbl.setFont(Theme.FONT.deriveFont(15f));
+        lbl.setAlignmentX(LEFT_ALIGNMENT);
+        return lbl;
+    }
+
+    /** Row with fixed-width label column so values align */
+    private JPanel infoRow(String labelText, JLabel valueLabel) {
+        JPanel row = UiFactory.rowPanel();
+        row.setAlignmentX(LEFT_ALIGNMENT);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+
+        JLabel lbl = styledFormLabel(labelText);
+        lbl.setPreferredSize(new Dimension(120, 24));
+        lbl.setMinimumSize(new Dimension(120, 24));
+
+        row.add(lbl);
+        row.add(Box.createHorizontalStrut(12));
+        row.add(valueLabel);
+        row.add(Box.createHorizontalGlue());
+        return row;
+    }
+}

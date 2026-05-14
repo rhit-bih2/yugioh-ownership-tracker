@@ -107,7 +107,7 @@ public class MainFrame extends JFrame {
         side.add(brand);
         side.add(Box.createVerticalStrut(16));
 
-        int numPage = isSeller ? 4 : 3;
+        int numPage = isSeller ? 5 : 4;
         JPanel navGroup = new JPanel(new GridLayout(numPage, 1, 0, 0));
         navGroup.setOpaque(false);
         navButtons.clear();
@@ -115,6 +115,7 @@ public class MainFrame extends JFrame {
         navGroup.add(navButton("Collections", AppNavigator.PAGE_COLLECTIONS));
         navGroup.add(navButton("Trade", AppNavigator.PAGE_TRADE));
         navGroup.add(navButton("Card Library", AppNavigator.PAGE_LIBRARY));
+        navGroup.add(navButton("Marketplace", AppNavigator.PAGE_MARKETPLACE));
         if (isSeller) {
             navGroup.add(navButton("My Listings", AppNavigator.PAGE_MY_LISTINGS));
         }

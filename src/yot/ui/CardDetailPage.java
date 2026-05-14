@@ -22,8 +22,6 @@ import yot.services.DatabaseConnectionService;
 
 public class CardDetailPage extends JPanel {
 
-    
-
     private final JLabel titleLabel;
     private final JLabel idLabel;
     private final JLabel rarityLabel;
@@ -42,10 +40,14 @@ public class CardDetailPage extends JPanel {
     private Integer cardIDCheck;
     private CardDetailService cardDetailService;
 
+    // backAction and backBtn are fields so setBackAction/setBackLabel can update them
+    private Runnable backAction;
+    private final JButton backBtn;
+
     public CardDetailPage(Runnable onBack, DatabaseConnectionService dbService, String username) {
-    	this.username = username;
-    	this.cardDetailService = new CardDetailService(dbService);
-    	
+        this.username = username;
+        this.cardDetailService = new CardDetailService(dbService);
+        this.backAction = onBack;
 
         JPanel page = UiFactory.pageContainer();
 
@@ -69,12 +71,15 @@ public class CardDetailPage extends JPanel {
         header.add(Box.createVerticalStrut(4));
         header.add(sub);
 
-        JButton back = UiFactory.outlineButton("← Back to Card Library");
-        back.addActionListener(e -> onBack.run());
+        // backBtn is a field — assigned here so setBackLabel() works later
+        backBtn = UiFactory.outlineButton("← Back to Card Library");
+        backBtn.addActionListener(e -> {
+            if (backAction != null) backAction.run();
+        });
 
         top.add(header);
         top.add(Box.createHorizontalGlue());
-        top.add(back);
+        top.add(backBtn);
         page.add(top);
         page.add(Box.createVerticalStrut(14));
 
@@ -104,50 +109,45 @@ public class CardDetailPage extends JPanel {
 
         imageCard.add(Box.createVerticalStrut(10));
 
-        contentRow.add(imageCard);
-
-        // Separate button panel below image panel
+        // ── Button panel below image ──────────────────────────────────────────
         JPanel buttonCard = UiFactory.panelCard();
-     	buttonCard.setLayout(new BoxLayout(buttonCard, BoxLayout.Y_AXIS));
-     	buttonCard.setBorder(new EmptyBorder(8, 16, 8, 16));
-     	buttonCard.setPreferredSize(new Dimension(394, 44));
-     	buttonCard.setMaximumSize(new Dimension(394, 44));
-     	buttonCard.setMinimumSize(new Dimension(394, 44));
-     	addToCollectionBtn = UiFactory.primaryButton("Add Card to Collection");
-     	addToCollectionBtn.setAlignmentX(CENTER_ALIGNMENT);
-     	addToCollectionBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
-     	addToCollectionBtn.setMinimumSize(new Dimension(362, 28));
-     	addToCollectionBtn.setPreferredSize(new Dimension(362, 28));
-     	addToCollectionBtn.addActionListener(e -> {
-     		//addToCollectionButton Action Method
-     		AddCardToOwned(cardIDCheck);
-     		revalidate();
+        buttonCard.setLayout(new BoxLayout(buttonCard, BoxLayout.Y_AXIS));
+        buttonCard.setBorder(new EmptyBorder(8, 16, 8, 16));
+        buttonCard.setPreferredSize(new Dimension(394, 44));
+        buttonCard.setMaximumSize(new Dimension(394, 44));
+        buttonCard.setMinimumSize(new Dimension(394, 44));
+        addToCollectionBtn = UiFactory.primaryButton("Add Card to Collection");
+        addToCollectionBtn.setAlignmentX(CENTER_ALIGNMENT);
+        addToCollectionBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        addToCollectionBtn.setMinimumSize(new Dimension(362, 28));
+        addToCollectionBtn.setPreferredSize(new Dimension(362, 28));
+        addToCollectionBtn.addActionListener(e -> {
+            AddCardToOwned(cardIDCheck);
+            revalidate();
             repaint();
-     	});
-     	buttonCard.add(UiFactory.fillButton(addToCollectionBtn));
+        });
+        buttonCard.add(UiFactory.fillButton(addToCollectionBtn));
 
-     	JPanel leftStack = new JPanel();
-     	leftStack.setOpaque(false);
-     	leftStack.setLayout(new BoxLayout(leftStack, BoxLayout.Y_AXIS));
-     	leftStack.add(imageCard);
-     	leftStack.add(Box.createVerticalStrut(8));
-     	leftStack.add(buttonCard);
-     	contentRow.add(leftStack);
-     	contentRow.add(Box.createHorizontalStrut(14));
+        JPanel leftStack = new JPanel();
+        leftStack.setOpaque(false);
+        leftStack.setLayout(new BoxLayout(leftStack, BoxLayout.Y_AXIS));
+        leftStack.add(imageCard);
+        leftStack.add(Box.createVerticalStrut(8));
+        leftStack.add(buttonCard);
+        contentRow.add(leftStack);
+        contentRow.add(Box.createHorizontalStrut(14));
 
         // ── Info panel ────────────────────────────────────────────────────────
         JPanel infoCard = UiFactory.panelCard();
         infoCard.setLayout(new BoxLayout(infoCard, BoxLayout.Y_AXIS));
         infoCard.setBorder(new EmptyBorder(16, 16, 16, 16));
 
-        // Name
         infoCard.add(UiFactory.sectionTitle("Card Name"));
         infoCard.add(Box.createVerticalStrut(4));
         titleLabel.setAlignmentX(LEFT_ALIGNMENT);
         infoCard.add(titleLabel);
         infoCard.add(Box.createVerticalStrut(12));
 
-        // ID
         infoCard.add(UiFactory.formLabel("Card ID"));
         idLabel = new JLabel("—");
         idLabel.setForeground(Theme.MUTED);
@@ -156,7 +156,6 @@ public class CardDetailPage extends JPanel {
         infoCard.add(idLabel);
         infoCard.add(Box.createVerticalStrut(10));
 
-        // Rarity + Code
         JPanel metaRow = UiFactory.rowPanel();
         metaRow.setAlignmentX(LEFT_ALIGNMENT);
         JPanel rarityBlock = infoBlock("Rarity");
@@ -175,7 +174,6 @@ public class CardDetailPage extends JPanel {
         infoCard.add(metaRow);
         infoCard.add(Box.createVerticalStrut(10));
 
-        // Type + Attribute + Race
         JPanel typeRow = UiFactory.rowPanel();
         typeRow.setAlignmentX(LEFT_ALIGNMENT);
         JPanel typeBlock = infoBlock("Type");
@@ -201,7 +199,6 @@ public class CardDetailPage extends JPanel {
         infoCard.add(typeRow);
         infoCard.add(Box.createVerticalStrut(10));
 
-        // Level + ATK + DEF
         JPanel statsRow = UiFactory.rowPanel();
         statsRow.setAlignmentX(LEFT_ALIGNMENT);
         JPanel lvlBlock = infoBlock("Level / Rank");
@@ -227,7 +224,6 @@ public class CardDetailPage extends JPanel {
         infoCard.add(statsRow);
         infoCard.add(Box.createVerticalStrut(10));
 
-        // Market Price
         JPanel priceBlock = infoBlock("Market Price");
         marketPriceLabel = new JLabel("—");
         marketPriceLabel.setForeground(Theme.ACCENT_ALT);
@@ -236,7 +232,6 @@ public class CardDetailPage extends JPanel {
         infoCard.add(priceBlock);
         infoCard.add(Box.createVerticalStrut(10));
 
-        // Description
         infoCard.add(UiFactory.sectionTitle("Card Description"));
         infoCard.add(Box.createVerticalStrut(6));
         descriptionLabel = new JLabel("<html><body style='width:420px'>—</body></html>");
@@ -256,11 +251,18 @@ public class CardDetailPage extends JPanel {
     }
 
     public void setCardData(Integer cardID) {
-    	String[] cardData = cardDetailService.getCardById(cardID);
+        String[] cardData = cardDetailService.getCardById(cardID);
         if (cardData == null || cardData.length < 1) return;
+
         cardIDCheck = Integer.valueOf(cardData[0]);
+
+        // Reset image and button while loading
         imageLabel.setIcon(null);
         imageLabel.setText("Loading…");
+        addToCollectionBtn.setText("Checking…");
+        addToCollectionBtn.setEnabled(false);
+        addToCollectionBtn.setBackground(new Color(60, 70, 100));
+        addToCollectionBtn.setForeground(Theme.MUTED);
 
         // [0] ID  [1] Name  [2] Code  [3] Rarity  [4] Description
         // [5] MarketPrice   [6] Type  [7] ATK  [8] DEF  [9] Level
@@ -283,11 +285,11 @@ public class CardDetailPage extends JPanel {
         repaint();
 
         String imageUrl = cardData[12];
-        String cardId = cardData[0];
-        cardID = Integer.valueOf(cardId);
+        String cardIdStr = cardData[0];
+
         new Thread(() -> {
             loadImage(imageUrl);
-            boolean owned = cardDetailService.isCardOwned(cardId, username);
+            boolean owned = cardDetailService.isCardOwned(cardIdStr, username);
             SwingUtilities.invokeLater(() -> {
                 if (owned) {
                     addToCollectionBtn.setText("Already Owned Card");
@@ -304,6 +306,31 @@ public class CardDetailPage extends JPanel {
         }).start();
     }
 
+    /**
+     * Sets where the back button navigates.
+     * Call before navigating to this page from a non-library source.
+     */
+    public void setBackAction(Runnable action) {
+        this.backAction = action;
+    }
+
+    /**
+     * Sets the back button label text.
+     * Call before navigating to this page from a non-library source.
+     */
+    public void setBackLabel(String label) {
+        backBtn.setText(label);
+    }
+
+    /**
+     * Resets back button to default (Card Library) state.
+     * Call when navigating here from the library normally.
+     */
+    public void resetBackToLibrary(Runnable libraryAction) {
+        this.backAction = libraryAction;
+        backBtn.setText("← Back to Card Library");
+    }
+
     private void loadImage(String imageUrl) {
         if (imageUrl == null || imageUrl.equals("—")) {
             SwingUtilities.invokeLater(() -> {
@@ -312,7 +339,6 @@ public class CardDetailPage extends JPanel {
             });
             return;
         }
-
         try {
             Image raw = ImageIO.read(new URL(imageUrl));
             if (raw == null) {
@@ -322,16 +348,12 @@ public class CardDetailPage extends JPanel {
                 });
                 return;
             }
-
-            // Scaled to match imageLabel dimensions
             Image scaled = raw.getScaledInstance(362, 518, Image.SCALE_SMOOTH);
             ImageIcon icon = new ImageIcon(scaled);
-
             SwingUtilities.invokeLater(() -> {
                 imageLabel.setIcon(icon);
                 imageLabel.setText(null);
             });
-
         } catch (IOException e) {
             System.out.println("Failed to load card image: " + imageUrl);
             SwingUtilities.invokeLater(() -> {
@@ -351,17 +373,14 @@ public class CardDetailPage extends JPanel {
         block.add(Box.createVerticalStrut(2));
         return block;
     }
-    
-    
-    
+
     private void AddCardToOwned(int CardID) {
-   		cardDetailService.AddCardToOwned(CardID, username);
-    	SwingUtilities.invokeLater(() -> {
-    	  	addToCollectionBtn.setText("Already Owned Card");
-    	  	addToCollectionBtn.setEnabled(false);
-    	  	addToCollectionBtn.setBackground(new Color(60, 70, 100));
-    	  	addToCollectionBtn.setForeground(Theme.MUTED);
-    	
-   		});
+        cardDetailService.AddCardToOwned(CardID, username);
+        SwingUtilities.invokeLater(() -> {
+            addToCollectionBtn.setText("Already Owned Card");
+            addToCollectionBtn.setEnabled(false);
+            addToCollectionBtn.setBackground(new Color(60, 70, 100));
+            addToCollectionBtn.setForeground(Theme.MUTED);
+        });
     }
 }
