@@ -212,6 +212,8 @@ public class MainFrame extends JFrame {
                 setNavActive(btn);
             } else if (btn.getText().contains("Listings") && AppNavigator.PAGE_MY_LISTINGS.equals(pageId)) {
                 setNavActive(btn);
+            } else if (btn.getText().contains("Marketplace") && AppNavigator.PAGE_MARKETPLACE.equals(pageId)) {
+                setNavActive(btn);
             }
         }
     }
