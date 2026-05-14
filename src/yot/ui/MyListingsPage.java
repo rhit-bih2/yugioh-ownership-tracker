@@ -177,6 +177,16 @@ public class MyListingsPage extends JPanel {
 
 		JButton minus = UiFactory.outlineButton("-");
 		minus.addActionListener(e -> {
+			if (listing.getQuantity() == 1) {
+				int choice = JOptionPane.showConfirmDialog(this,
+						"Remove this listing entirely?",
+						"Delete Listing",
+						JOptionPane.YES_NO_OPTION,
+						JOptionPane.WARNING_MESSAGE);
+				if (choice != JOptionPane.YES_OPTION) {
+					return;
+				}
+			}
 			if (sellerService.removeCardFromListing(cardId, username)) {
 				reloadListings();
 			}
