@@ -45,7 +45,7 @@ public class AppNavigator {
 
 
         if (isSeller) {
-            container.add(new MyListingsPage(dbService, username, this::openCardDetail), PAGE_MY_LISTINGS);
+            container.add(new MyListingsPage(dbService, username, this::openSalesDetail), PAGE_MY_LISTINGS);
         }
     }
 

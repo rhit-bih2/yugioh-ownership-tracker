@@ -15,6 +15,7 @@ import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import javax.imageio.ImageIO;
@@ -39,15 +40,16 @@ import yot.services.SellerService.SellerListing;
  */
 public class MyListingsPage extends JPanel {
 	private final String username;
-	private final Consumer<Integer> onOpenCardDetail;
+	private final BiConsumer<String, Integer> onOpenListingDetail;
 	private final CollectionService collectionService;
 	private final SellerService sellerService;
 	private final JPanel listingsBody;
 	private final Map<Integer, ImageIcon> imageCache = new HashMap<Integer, ImageIcon>();
-
-	public MyListingsPage(DatabaseConnectionService dbService, String username, Consumer<Integer> onOpenCardDetail) {
+	
+	//Update parameter
+	public MyListingsPage(DatabaseConnectionService dbService, String username, BiConsumer<String, Integer> onOpenListingDetail) {
 		this.username = username;
-		this.onOpenCardDetail = onOpenCardDetail;
+		this.onOpenListingDetail = onOpenListingDetail;
 		this.collectionService = new CollectionService(dbService);
 		this.sellerService = new SellerService(dbService);
 
@@ -265,7 +267,7 @@ public class MyListingsPage extends JPanel {
 		label.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				onOpenCardDetail.accept(cardId);
+				onOpenListingDetail.accept(username, cardId);
 			}
 		});
 		return label;

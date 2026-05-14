@@ -86,7 +86,7 @@ public class CollectionsPage extends JPanel {
 
     	ArrayList<Integer> collectionIDs = collectionService.getCollectionIDs(username);
     	for (int id : collectionIDs) {
-    		list.add(collectionItem(collectionService.getCollectionName(id), "To be implemented...", false, id));
+    		list.add(collectionItem(collectionService.getCollectionName(id), "User Created Collection", false, id));
     		list.add(Box.createVerticalStrut(8));
     	}
 
