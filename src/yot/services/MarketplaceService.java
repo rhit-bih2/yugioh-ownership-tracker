@@ -52,8 +52,8 @@ public class MarketplaceService {
     public List<String[]> getListingDetail(int cardId) {
         List<String[]> results = new ArrayList<>();
         Connection conn = dbService.getConnection();
-        CallableStatement cs = null;
         String query = "{CALL GetListingDetail(?)}";
+        CallableStatement cs = null;
  
         try { 
         	cs = conn.prepareCall(query);
@@ -96,7 +96,8 @@ public class MarketplaceService {
     private String nullDataHandle(ResultSet rs, String column) {
         try {
             String val = rs.getString(column);
-            return val != null ? val : "—";
+            if (val == null) return "-";
+            return val;
         } catch (SQLException e) {
             return "—";
         }

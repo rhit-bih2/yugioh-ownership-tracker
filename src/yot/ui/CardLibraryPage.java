@@ -49,20 +49,12 @@ public class CardLibraryPage extends JPanel {
         add(page, BorderLayout.CENTER);
     }
 
-    /**
-     * Called by CardSearchPanel when the user clicks a card image.
-     * Fetches full card data then fires onOpenDetail to navigate to CardDetailPage.
-     */
     private void navigateDetailPage(Integer cardId) {
         if (cardId != null) {
             onOpenDetail.accept(cardId);
         }
     }
 
-    /**
-     * Passed to CardSearchPanel as the search function.
-     * Calls dbo.RetrieveCard with the filter map and returns matching IDs.
-     */
     private List<Integer> retrieveCard(Map<String, String> map) {
         List<Integer> list = cardDetailService.retrieveCard(map);
         return list;

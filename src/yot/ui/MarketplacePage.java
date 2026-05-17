@@ -32,7 +32,6 @@ public class MarketplacePage extends JPanel {
     private final CardSearchService cardSearchService;
 
     private final BiConsumer<String, Integer> onOpenSalesDetail;
-    private final Consumer<Integer> onOpenCardDetail;
 
     private final JPanel listingDetailWrapper;
     private final JPanel listingRowsPanel;
@@ -43,7 +42,6 @@ public class MarketplacePage extends JPanel {
         this.marketplaceService = new MarketplaceService(dbService);
         this.cardSearchService  = new CardSearchService(dbService);
         this.onOpenSalesDetail  = onOpenSalesDetail;
-        this.onOpenCardDetail   = onOpenCardDetail;
 
         JPanel page = UiFactory.pageContainer();
 

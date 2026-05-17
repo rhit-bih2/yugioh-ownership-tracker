@@ -22,7 +22,9 @@ import yot.services.DatabaseConnectionService;
 
 public class CardDetailPage extends JPanel {
 
-    private final JLabel titleLabel;
+    // pageTitleLabel — fixed "Card Detail" text in the top bar (never changes)
+    // cardNameLabel  — shows the actual card name inside the info panel (changes per card)
+    private final JLabel cardNameLabel;
     private final JLabel idLabel;
     private final JLabel rarityLabel;
     private final JLabel setCodeLabel;
@@ -33,14 +35,13 @@ public class CardDetailPage extends JPanel {
     private final JLabel atkLabel;
     private final JLabel defLabel;
     private final JLabel marketPriceLabel;
-    private final JLabel descriptionLabel;
+    private final javax.swing.JTextArea descriptionLabel;
     private final JLabel imageLabel;
     private JButton addToCollectionBtn;
     private String username;
     private Integer cardIDCheck;
     private CardDetailService cardDetailService;
 
-    // backAction and backBtn are fields so setBackAction/setBackLabel can update them
     private Runnable backAction;
     private final JButton backBtn;
 
@@ -60,18 +61,18 @@ public class CardDetailPage extends JPanel {
         header.setOpaque(false);
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
 
-        titleLabel = new JLabel("Card Detail");
-        titleLabel.setFont(Theme.FONT_PAGE);
-        titleLabel.setForeground(Theme.TEXT);
+        // Separate label for the page header — never re-added anywhere else
+        JLabel pageTitleLabel = new JLabel("Card Detail");
+        pageTitleLabel.setFont(Theme.FONT_PAGE);
+        pageTitleLabel.setForeground(Theme.TEXT);
 
         JLabel sub = new JLabel("Full card information from the database.");
         sub.setForeground(Theme.MUTED);
 
-        header.add(titleLabel);
+        header.add(pageTitleLabel);
         header.add(Box.createVerticalStrut(4));
         header.add(sub);
 
-        // backBtn is a field — assigned here so setBackLabel() works later
         backBtn = UiFactory.outlineButton("← Back to Card Library");
         backBtn.addActionListener(e -> {
             if (backAction != null) backAction.run();
@@ -142,10 +143,14 @@ public class CardDetailPage extends JPanel {
         infoCard.setLayout(new BoxLayout(infoCard, BoxLayout.Y_AXIS));
         infoCard.setBorder(new EmptyBorder(16, 16, 16, 16));
 
+        // Card name — separate label, only added to infoCard
         infoCard.add(UiFactory.sectionTitle("Card Name"));
         infoCard.add(Box.createVerticalStrut(4));
-        titleLabel.setAlignmentX(LEFT_ALIGNMENT);
-        infoCard.add(titleLabel);
+        cardNameLabel = new JLabel("—");
+        cardNameLabel.setFont(Theme.FONT_PAGE);
+        cardNameLabel.setForeground(Theme.TEXT);
+        cardNameLabel.setAlignmentX(LEFT_ALIGNMENT);
+        infoCard.add(cardNameLabel);
         infoCard.add(Box.createVerticalStrut(12));
 
         infoCard.add(UiFactory.formLabel("Card ID"));
@@ -234,16 +239,18 @@ public class CardDetailPage extends JPanel {
 
         infoCard.add(UiFactory.sectionTitle("Card Description"));
         infoCard.add(Box.createVerticalStrut(6));
-        descriptionLabel = new JLabel("<html><body style='width:420px'>—</body></html>");
+        descriptionLabel = new javax.swing.JTextArea("—");
         descriptionLabel.setForeground(Theme.MUTED);
         descriptionLabel.setFont(Theme.FONT.deriveFont(16f));
+        descriptionLabel.setBackground(Theme.PANEL);  
+        descriptionLabel.setLineWrap(true);            
+        descriptionLabel.setWrapStyleWord(true);       
+        descriptionLabel.setEditable(false);           
         descriptionLabel.setAlignmentX(LEFT_ALIGNMENT);
         infoCard.add(descriptionLabel);
-        infoCard.add(Box.createVerticalGlue());
 
         contentRow.add(infoCard);
         page.add(contentRow);
-        page.add(Box.createVerticalGlue());
 
         setLayout(new BorderLayout());
         setOpaque(false);
@@ -256,7 +263,6 @@ public class CardDetailPage extends JPanel {
 
         cardIDCheck = Integer.valueOf(cardData[0]);
 
-        // Reset image and button while loading
         imageLabel.setIcon(null);
         imageLabel.setText("Loading…");
         addToCollectionBtn.setText("Checking…");
@@ -267,7 +273,7 @@ public class CardDetailPage extends JPanel {
         // [0] ID  [1] Name  [2] Code  [3] Rarity  [4] Description
         // [5] MarketPrice   [6] Type  [7] ATK  [8] DEF  [9] Level
         // [10] Race  [11] Attribute  [12] ImageURL  [13] SetID
-        titleLabel.setText(cardData[1]);
+        cardNameLabel.setText(cardData[1]);
         idLabel.setText("ID: " + cardData[0]);
         rarityLabel.setText(cardData[3]);
         setCodeLabel.setText(cardData[2]);
@@ -278,9 +284,7 @@ public class CardDetailPage extends JPanel {
         atkLabel.setText(cardData[7]);
         defLabel.setText(cardData[8]);
         marketPriceLabel.setText("$" + cardData[5]);
-        descriptionLabel.setText(
-                "<html><body style='width:420px'>" + cardData[4] + "</body></html>");
-
+        descriptionLabel.setText(cardData[4]);
         revalidate();
         repaint();
 
@@ -322,10 +326,6 @@ public class CardDetailPage extends JPanel {
         backBtn.setText(label);
     }
 
-    /**
-     * Resets back button to default (Card Library) state.
-     * Call when navigating here from the library normally.
-     */
     public void resetBackToLibrary(Runnable libraryAction) {
         this.backAction = libraryAction;
         backBtn.setText("← Back to Card Library");
@@ -361,6 +361,44 @@ public class CardDetailPage extends JPanel {
                 imageLabel.setText("Image unavailable");
             });
         }
+    }
+    
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        // Listen on the top-level window for resize events
+        java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
+        if (window != null) {
+            window.addComponentListener(new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentResized(java.awt.event.ComponentEvent e) {
+                    applyResponsiveFonts(window.getWidth());
+                }
+            });
+        }
+    }
+    
+    private void applyResponsiveFonts(int width) {
+        float scale = Math.max(1.0f, width / 1240f);
+        float base  = 16f * scale;
+        float bold  = 16f * scale;
+        float title = 28f * scale;
+
+        cardNameLabel.setFont(Theme.FONT_PAGE.deriveFont(title));
+        idLabel.setFont(Theme.FONT.deriveFont(base));
+        rarityLabel.setFont(Theme.FONT_BOLD.deriveFont(bold));
+        setCodeLabel.setFont(Theme.FONT_BOLD.deriveFont(bold));
+        typeLabel.setFont(Theme.FONT.deriveFont(base));
+        attributeLabel.setFont(Theme.FONT.deriveFont(base));
+        raceLabel.setFont(Theme.FONT.deriveFont(base));
+        levelLabel.setFont(Theme.FONT.deriveFont(base));
+        atkLabel.setFont(Theme.FONT_BOLD.deriveFont(bold));
+        defLabel.setFont(Theme.FONT_BOLD.deriveFont(bold));
+        marketPriceLabel.setFont(Theme.FONT_BOLD.deriveFont(bold));
+        descriptionLabel.setFont(Theme.FONT.deriveFont(base));
+
+        revalidate();
+        repaint();
     }
 
     private JPanel infoBlock(String labelText) {

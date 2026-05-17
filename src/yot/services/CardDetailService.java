@@ -57,8 +57,8 @@ public class CardDetailService{
      */
     public String[] getCardById(Integer id) {
         Connection conn = dbService.getConnection();
-        CallableStatement cs = null;
         String query = "{CALL GetCardInfo(?)}";
+        CallableStatement cs = null;
         try {
         	cs = conn.prepareCall(query);
             cs.setInt(1, id);
@@ -89,7 +89,6 @@ public class CardDetailService{
             System.out.println("Error fetching card by ID: " + id);
             e.printStackTrace();
         }
-
         return null;
     }
 
@@ -105,7 +104,8 @@ public class CardDetailService{
     private String nullDataHandle(ResultSet rs, String column) {
         try {
             String val = rs.getString(column);
-            return val != null ? val : "—";
+            if (val == null) return "-";
+            return val;
         } catch (SQLException e) {
             return "—";
         }

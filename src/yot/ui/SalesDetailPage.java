@@ -20,7 +20,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 import yot.services.CardSearchService;
-import yot.services.MarketplaceService;
 import yot.services.SalesDetailService;
 import yot.services.DatabaseConnectionService;
 
@@ -339,6 +338,42 @@ public class SalesDetailPage extends JPanel {
         row.add(valueLabel);
         row.add(Box.createHorizontalGlue());
         return row;
+    }
+    
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        java.awt.Window window = javax.swing.SwingUtilities.getWindowAncestor(this);
+        if (window != null) {
+            window.addComponentListener(new java.awt.event.ComponentAdapter() {
+                @Override
+                public void componentResized(java.awt.event.ComponentEvent e) {
+                    applyResponsiveFonts(window.getWidth());
+                }
+            });
+        }
+    }
+
+    private void applyResponsiveFonts(int width) {
+        float scale = Math.max(1.0f, width / 1240f);
+        float base  = 15f * scale;
+        float value = 17f * scale;
+        float price = 26f * scale;
+        float mkt   = 20f * scale;
+
+        sellerUsernameLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
+        storeNameLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
+        phoneLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
+        addressLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
+        storeDescLabel.setFont(Theme.FONT.deriveFont(base));
+        cardNameLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
+        cardCodeLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
+        rarityLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
+        listingPriceLabel.setFont(Theme.FONT_BOLD.deriveFont(price));
+        marketPriceLabel.setFont(Theme.FONT_BOLD.deriveFont(mkt));
+
+        revalidate();
+        repaint();
     }
     
     /**

@@ -18,8 +18,8 @@ public class SalesDetailService {
 	
 	public String[] getCardSalesDetail(int cardId, String username) {
         Connection conn = dbService.getConnection();
-        CallableStatement cs = null;
         String query = "{CALL GetCardSalesDetail(?, ?)}";
+        CallableStatement cs = null;
  
         try {
         	cs = conn.prepareCall(query);
@@ -57,12 +57,13 @@ public class SalesDetailService {
         return null;
     }
 	 
-	 private String nullDataHandle(ResultSet rs, String column) {
-	        try {
-	            String val = rs.getString(column);
-	            return val != null ? val : "—";
-	        } catch (SQLException e) {
-	            return "—";
-	        }
-	    }
+	private String nullDataHandle(ResultSet rs, String column) {
+        try {
+            String val = rs.getString(column);
+            if (val == null) return "-";
+            return val;
+        } catch (SQLException e) {
+            return "—";
+        }
+    }
 }
