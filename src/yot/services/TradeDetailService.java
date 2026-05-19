@@ -2,14 +2,11 @@ package yot.services;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-
-import yot.services.TradeService.TradeRequest;
 
 public class TradeDetailService {
 	private DatabaseConnectionService dbService = null;
@@ -42,7 +39,7 @@ public class TradeDetailService {
 		}
 	}
 	
-	public Map<String, String> GetTradeConfirmInfo(int tradeID){
+	public Map<String, String> getTradeConfirmInfo(int tradeID){
 		Map<String, String> map = new HashMap<String,String>();
 		Connection con = dbService.getConnection();
 		CallableStatement cs = null;
@@ -63,7 +60,7 @@ public class TradeDetailService {
 		return map;
 	}
 	
-	public Map<String, String> GetTradeAllInfo(int tradeID){ //Not yet done
+	public Map<String, String> getAllTradeInfo(int tradeID){ //Not yet done
 		Map<String, String> map = new HashMap<String,String>();
 		Connection con = dbService.getConnection();
 		CallableStatement cs = null;
@@ -84,14 +81,45 @@ public class TradeDetailService {
 		return map;
 	}
 	
-	public ArrayList<Card> GetCardsOffered(int tradeID, String username){
+	public ArrayList<Card> getCardsOffered(int tradeID, String username){
+		
 		return null;
 	}
 	
-	public boolean OfferCard(int tradeID, String username, int cardID) {
-		
+	public boolean offerCard(int tradeID, int cardID, String username) {
 		
 		return false;
 	}
+	
+	public boolean incrementCardOffered(int tradeID, int cardID, String username) {
+
+		return false;
+	}
+	
+	public boolean decrementCardOffered(int tradeID, int cardID, String username) {
+
+		return false;
+	}
+	
+	public boolean removeCardOffered(int tradeID, int cardID, String username) {
+		
+		return false;
+	}
+	
+	public String getCardImage(int cardID) {
+		
+		return null;
+	}
+	
+	public boolean confirmTrade(int tradeID, String username) {
+		
+		return false;
+	}
+	
+	public boolean abortTrade(int tradeID) {
+		
+		return false;
+	}
+	
 	
 }
