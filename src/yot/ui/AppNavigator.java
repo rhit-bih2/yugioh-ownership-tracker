@@ -16,6 +16,7 @@ public class AppNavigator {
     public static final String PAGE_CARD_DETAIL = "cardDetail";
     public static final String PAGE_SALES_DETAIL = "salesDetail";  
     public static final String PAGE_MARKETPLACE = "marketplace";
+    public static final String PAGE_TRADE_DETAIL = "tradeDetail";
 
 
     private final CardLayout layout;
@@ -25,6 +26,7 @@ public class AppNavigator {
     private final Consumer<String> onPageChanged;
     private final SalesDetailPage salesDetailPage;
     private final TradePage tradePage;
+    private final TradeDetailPage tradeDetailPage;
 
 
     public AppNavigator(CardLayout layout, JPanel container, Consumer<String> onPageChanged, DatabaseConnectionService dbService, String username, boolean isSeller) {
@@ -40,10 +42,12 @@ public class AppNavigator {
         
         cardDetailPage = new CardDetailPage(() -> show(PAGE_LIBRARY), dbService, username);
         salesDetailPage = new SalesDetailPage(() -> show(PAGE_MARKETPLACE), dbService, this::openCardDetailFromMarketplace);
+        tradeDetailPage = new TradeDetailPage(() -> show(PAGE_TRADE), dbService, username);
         container.add(new CardLibraryPage(this::openCardDetail, dbService), PAGE_LIBRARY);
         container.add(cardDetailPage, PAGE_CARD_DETAIL);
         container.add(new MarketplacePage(dbService, this::openCardDetail, this::openSalesDetail), PAGE_MARKETPLACE);
         container.add(salesDetailPage, PAGE_SALES_DETAIL);
+        container.add(tradeDetailPage, PAGE_TRADE_DETAIL);
 
 
         if (isSeller) {
@@ -100,10 +104,10 @@ public class AppNavigator {
     
     public void openTradeDetail(String username, int tradeID) {
     	//to be implemented
-//    	tradeDetailPage.setBackAction(() -> show(PAGE_TRADE));
-//    	tradeDetailPage.setBackLabel("← Back to Trade");
-//    	tradeDetailPage.loadDetail(tradeID, username);
-//    	show(PAGE_TRADE_DETAIL);
+    	tradeDetailPage.setBackAction(() -> show(PAGE_TRADE));
+    	tradeDetailPage.setBackLabel("← Back to Trade");
+    	tradeDetailPage.loadTradeDetail(tradeID);
+    	show(PAGE_TRADE_DETAIL);
     }
 
 
