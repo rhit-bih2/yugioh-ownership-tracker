@@ -24,6 +24,7 @@ public class AppNavigator {
     private final CardDetailPage cardDetailPage;
     private final Consumer<String> onPageChanged;
     private final SalesDetailPage salesDetailPage;
+    private final TradePage tradePage;
 
 
     public AppNavigator(CardLayout layout, JPanel container, Consumer<String> onPageChanged, DatabaseConnectionService dbService, String username, boolean isSeller) {
@@ -34,7 +35,8 @@ public class AppNavigator {
         detailPage = new CollectionDetailPage(() -> show(PAGE_COLLECTIONS), this::openCardDetailFromCollection, dbService, username);
         container.add(new CollectionsPage(this::openCollectionDetail, dbService, username), PAGE_COLLECTIONS);
         container.add(detailPage, PAGE_DETAIL);
-        container.add(new PlaceholderPage("Trade", "Trade workflow content will be added later."), PAGE_TRADE);
+        tradePage = new TradePage(dbService, username, this::openTradeDetail);
+        container.add(tradePage, PAGE_TRADE);
         
         cardDetailPage = new CardDetailPage(() -> show(PAGE_LIBRARY), dbService, username);
         salesDetailPage = new SalesDetailPage(() -> show(PAGE_MARKETPLACE), dbService, this::openCardDetailFromMarketplace);
@@ -51,6 +53,9 @@ public class AppNavigator {
 
     public void show(String pageId) {
         layout.show(container, pageId);
+        if (PAGE_TRADE.equals(pageId)) {
+            tradePage.refresh();
+        }
         onPageChanged.accept(pageId);
     }
     
@@ -91,6 +96,14 @@ public class AppNavigator {
     	salesDetailPage.setBackLabel("← Back to Marketplace");
         salesDetailPage.loadDetail(CardID, username);
         show(PAGE_SALES_DETAIL);
+    }
+    
+    public void openTradeDetail(String username, int tradeID) {
+    	//to be implemented
+//    	tradeDetailPage.setBackAction(() -> show(PAGE_TRADE));
+//    	tradeDetailPage.setBackLabel("← Back to Trade");
+//    	tradeDetailPage.loadDetail(tradeID, username);
+//    	show(PAGE_TRADE_DETAIL);
     }
 
 
