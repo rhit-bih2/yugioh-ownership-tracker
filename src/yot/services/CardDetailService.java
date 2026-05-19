@@ -92,8 +92,7 @@ public class CardDetailService{
         return null;
     }
 
-    private void setNullable(CallableStatement cs, int index, String value, int sqlType)
-            throws SQLException {
+    private void setNullable(CallableStatement cs, int index, String value, int sqlType) throws SQLException{
         if (value == null || value.isEmpty()) {
             cs.setNull(index, sqlType);
         } else {
@@ -104,6 +103,9 @@ public class CardDetailService{
     private String nullDataHandle(ResultSet rs, String column) {
         try {
             String val = rs.getString(column);
+            if(column == "ATK" || column == "DEF" || column == "Level") {
+            	if (Integer.valueOf(val) == -1) val = "?";
+            }
             if (val == null) return "-";
             return val;
         } catch (SQLException e) {
