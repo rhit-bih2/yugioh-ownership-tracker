@@ -103,10 +103,12 @@ public class CardDetailService{
     private String nullDataHandle(ResultSet rs, String column) {
         try {
             String val = rs.getString(column);
-            if(column == "ATK" || column == "DEF" || column == "Level") {
-            	if (Integer.valueOf(val) == -1) val = "?";
-            }
             if (val == null) return "-";
+            if (column == "ATK" || column == "DEF") {
+            	if(val != null && val.equals("-1")) {
+            		return "?";
+            	}
+            }
             return val;
         } catch (SQLException e) {
             return "—";
