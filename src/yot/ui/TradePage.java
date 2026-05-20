@@ -88,9 +88,11 @@ public class TradePage extends JPanel {
 			requestsBody.add(empty);
 		} else {
 			for (int i = 0; i < requests.size(); i++) {
-				requestsBody.add(buildTradeRow(requests.get(i)));
-				if (i < requests.size() - 1) {
-					requestsBody.add(Box.createVerticalStrut(8));
+				if (!(requests.get(i).getIsComplete())) {
+					requestsBody.add(buildTradeRow(requests.get(i)));
+					if (i < requests.size() - 1) {
+						requestsBody.add(Box.createVerticalStrut(8));
+					}
 				}
 			}
 		}

@@ -16,12 +16,14 @@ public class TradeService {
 		private final String receiverUsername;
 		private final int tradeRequestID;
 		private final Date dateCreated;
+		private boolean isComplete;
 
-		public TradeRequest(String senderUsername, String receiverUsername, int tradeRequestID, Date dateCreated) {
+		public TradeRequest(String senderUsername, String receiverUsername, int tradeRequestID, Date dateCreated, boolean isComplete) {
 			this.senderUsername = senderUsername;
 			this.receiverUsername = receiverUsername;
 			this.tradeRequestID = tradeRequestID;
 			this.dateCreated = dateCreated;
+			this.isComplete = isComplete;
 		}
 
 		public String getSenderUsername() {
@@ -38,6 +40,10 @@ public class TradeService {
 		
 		public Date getDateCreated() {
 			return this.dateCreated;
+		}
+		
+		public boolean getIsComplete() {
+			return this.isComplete;
 		}
 	}
 
@@ -59,8 +65,9 @@ public class TradeService {
 				String receiverUsername = rs.getString("ReceiverUsername");
 				int tradeRequestID = rs.getInt("ID");
 				Date dateCreated = rs.getDate("DateCreated");
+				boolean isComplete = rs.getBoolean("IsComplete");
 				
-				out.add(new TradeRequest(senderUsername, receiverUsername, tradeRequestID, dateCreated));
+				out.add(new TradeRequest(senderUsername, receiverUsername, tradeRequestID, dateCreated, isComplete));
 			}
 		} catch (SQLException e) {
 			JOptionPane.showMessageDialog(null, e.getMessage());
