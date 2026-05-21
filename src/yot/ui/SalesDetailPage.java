@@ -62,7 +62,7 @@ public class SalesDetailPage extends JPanel {
         header.setOpaque(false);
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
 
-        JLabel titleLabel = new JLabel("Card Sales Detail");
+        JLabel titleLabel = new JLabel("Card Listing Detail");
         titleLabel.setFont(Theme.FONT_PAGE);
         titleLabel.setForeground(Theme.TEXT);
 

@@ -64,14 +64,14 @@ public class TradePage extends JPanel {
 		JPanel listCard = UiFactory.panelCard();
 		listCard.setLayout(new BoxLayout(listCard, BoxLayout.Y_AXIS));
 		listCard.setBorder(new EmptyBorder(16, 16, 16, 16));
-		listCard.add(UiFactory.sectionTitle("Trade Requests"));
+		listCard.add(UiFactory.sectionTitle("Active Trade Requests"));
 		listCard.add(Box.createVerticalStrut(10));
 
 		requestsBody = new JPanel();
 		requestsBody.setOpaque(false);
 		requestsBody.setLayout(new BoxLayout(requestsBody, BoxLayout.Y_AXIS));
 		requestsBody.setAlignmentX(LEFT_ALIGNMENT);
-		listCard.add(UiFactory.scrollWrap(requestsBody));
+		listCard.add(requestsBody);
 		page.add(listCard);
 
 		add(UiFactory.scrollWrap(page));
