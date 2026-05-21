@@ -126,7 +126,7 @@ public class CardSearchPanel extends JPanel {
         row2.add(Box.createHorizontalStrut(8));
         JTextField levelInput = UiFactory.input("");
         installSignedIntegerFilter(levelInput);
-        row2.add(createValueFilter("Level", levelInput));
+        row2.add(createValueFilter("Level/Rank/Link", levelInput));
         row2.add(Box.createHorizontalStrut(8));
         advancedFilters.add(row2);
         
