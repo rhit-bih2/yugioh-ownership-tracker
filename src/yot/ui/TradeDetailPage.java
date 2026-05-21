@@ -2,6 +2,8 @@ package yot.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -27,6 +29,7 @@ import javax.swing.JPanel;
 import javax.swing.JViewport;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 
 import yot.services.CollectionService;
@@ -41,15 +44,23 @@ public class TradeDetailPage extends JPanel {
     private static final int CARD_NAME_MAX_WIDTH = 190;
     private static final float CARD_NAME_MIN_FONT_SIZE = 10f;
 
+    private static final Color ABORT_BTN_BG = new Color(91, 45, 63);
+    private static final Color ABORT_BTN_FG = new Color(255, 214, 223);
+    private static final Color ABORT_BTN_DISABLED_BG = new Color(60, 70, 100);
+    private static final int REFRESH_COOLDOWN_MS = 5000;
+
     private final DatabaseConnectionService dbService;
     private final TradeDetailService tradeService;
     private final CollectionService collectionService;
     private String currentUsername;
     private Integer currentTradeId;
     private String partnerUsername;
+    private boolean tradeComplete;
+    private boolean anyoneConfirmed;
 
     private final JLabel senderUsernameLabel;
     private final JLabel receiverUsernameLabel;
+    private final JLabel tradeCompletedLabel;
     private final JLabel partnerConfirmStatusLabel;
     private final JButton confirmButton;
     private final JButton abortButton;
@@ -59,6 +70,7 @@ public class TradeDetailPage extends JPanel {
     private final JPanel myOffersGridPanel;
     private final JPanel partnerOffersCard;
     private final JPanel myOfferCard;
+    private final CardSearchPanel cardSearchPanel;
 
     private final Map<Integer, ImageIcon> cardImageCache = new HashMap<Integer, ImageIcon>();
     private ArrayList<Card> partnerCards = new ArrayList<Card>();
@@ -66,10 +78,13 @@ public class TradeDetailPage extends JPanel {
 
     private Runnable backAction;
     private final JButton backBtn;
+    private final JButton refreshButton;
+    private Timer refreshCooldownTimer;
+    private boolean refreshOnCooldown;
 
     public TradeDetailPage(Runnable onBack, DatabaseConnectionService dbService, String username) {
         this.dbService = dbService;
-        this.tradeService = new TradeDetailService(dbService, username);
+        this.tradeService = new TradeDetailService(this.dbService, username);
         this.collectionService = new CollectionService(dbService);
         this.backAction = onBack;
         this.currentUsername = username;
@@ -101,8 +116,13 @@ public class TradeDetailPage extends JPanel {
             if (backAction != null) backAction.run();
         });
 
+        refreshButton = UiFactory.softButton("Refresh");
+        refreshButton.addActionListener(e -> handleRefresh());
+
         top.add(header);
         top.add(Box.createHorizontalGlue());
+        top.add(refreshButton);
+        top.add(Box.createHorizontalStrut(8));
         top.add(backBtn);
         page.add(top);
         page.add(Box.createVerticalStrut(14));
@@ -123,6 +143,14 @@ public class TradeDetailPage extends JPanel {
 
         receiverUsernameLabel = styledValue();
         metadataCard.add(infoRow("Receiver", receiverUsernameLabel));
+        metadataCard.add(Box.createVerticalStrut(20));
+
+        tradeCompletedLabel = new JLabel("This trade has been completed.");
+        tradeCompletedLabel.setForeground(Theme.ACCENT_ALT);
+        tradeCompletedLabel.setFont(Theme.FONT_BOLD.deriveFont(15f));
+        tradeCompletedLabel.setAlignmentX(LEFT_ALIGNMENT);
+        tradeCompletedLabel.setVisible(false);
+        metadataCard.add(tradeCompletedLabel);
         metadataCard.add(Box.createVerticalStrut(20));
 
         metadataCard.add(styledFormLabel("Trade Partner Status"));
@@ -199,8 +227,8 @@ public class TradeDetailPage extends JPanel {
         myOfferCard.add(UiFactory.sectionTitle("Your Offer"));
         myOfferCard.add(Box.createVerticalStrut(10));
 
-        CardSearchPanel searchPanel = new CardSearchPanel(this::queryOwnedCards, this::onSearchCardClick, dbService);
-        myOfferCard.add(searchPanel);
+        cardSearchPanel = new CardSearchPanel(this::queryOwnedCards, this::onSearchCardClick, dbService);
+        myOfferCard.add(cardSearchPanel);
         myOfferCard.add(Box.createVerticalStrut(14));
         myOfferCard.add(UiFactory.sectionTitle("Cards You Are Offering"));
         myOfferCard.add(Box.createVerticalStrut(10));
@@ -243,12 +271,14 @@ public class TradeDetailPage extends JPanel {
         receiverUsernameLabel.setText("Loading…");
         partnerConfirmStatusLabel.setText("Loading…");
         currentUserConfirmStatusLabel.setText("Loading…");
+        tradeCompletedLabel.setVisible(false);
+        tradeComplete = false;
+        anyoneConfirmed = false;
         confirmButton.setEnabled(true);
         confirmButton.setText("Confirm Trade");
         confirmButton.setBackground(Theme.ACCENT);
         confirmButton.setForeground(Color.WHITE);
-        abortButton.setEnabled(true);
-        abortButton.setText("Abort Trade");
+        setAbortButtonActive();
 
         rebuildPartnerCards(new ArrayList<Card>());
         rebuildMyOffers(new ArrayList<Card>());
@@ -272,6 +302,7 @@ public class TradeDetailPage extends JPanel {
             String receiverUsername = tradeData.getOrDefault("ReceiverUsername", "Unknown");
             String senderConfirmedStr = tradeData.getOrDefault("SenderConfirmed", "0");
             String receiverConfirmedStr = tradeData.getOrDefault("ReceiverConfirmed", "0");
+            String isCompleteStr = tradeData.getOrDefault("IsComplete", "0");
 
             String partner = currentUsername.equals(senderUsername) ? receiverUsername : senderUsername;
 
@@ -283,17 +314,40 @@ public class TradeDetailPage extends JPanel {
                 senderUsernameLabel.setText(senderUsername);
                 receiverUsernameLabel.setText(receiverUsername);
 
+                boolean tradeComplete = "1".equals(isCompleteStr);
                 boolean senderConfirmed = "1".equals(senderConfirmedStr);
                 boolean receiverConfirmed = "1".equals(receiverConfirmedStr);
+
+                TradeDetailPage.this.tradeComplete = tradeComplete;
+                TradeDetailPage.this.anyoneConfirmed = senderConfirmed || receiverConfirmed;
+
+                tradeCompletedLabel.setVisible(tradeComplete);
 
                 boolean currentUserConfirmed = (currentUsername.equals(senderUsername) && senderConfirmed)
                         || (currentUsername.equals(receiverUsername) && receiverConfirmed);
 
-                if (currentUserConfirmed) {
+                if (tradeComplete) {
+                    confirmButton.setEnabled(false);
+                    confirmButton.setText("Trade Completed");
+                    confirmButton.setBackground(new Color(60, 70, 100));
+                    confirmButton.setForeground(Theme.MUTED);
+                    abortButton.setEnabled(false);
+                    abortButton.setText("Trade Completed");
+                    abortButton.setBackground(ABORT_BTN_DISABLED_BG);
+                    abortButton.setForeground(Theme.MUTED);
+                } else if (currentUserConfirmed) {
                     confirmButton.setEnabled(false);
                     confirmButton.setText("Confirmed");
                     confirmButton.setBackground(new Color(60, 70, 100));
                     confirmButton.setForeground(Theme.MUTED);
+                } else {
+                    confirmButton.setEnabled(true);
+                    confirmButton.setText("Confirm Trade");
+                    confirmButton.setBackground(Theme.ACCENT);
+                    confirmButton.setForeground(Color.WHITE);
+                }
+
+                if (currentUserConfirmed) {
                     currentUserConfirmStatusLabel.setText("You have confirmed this trade");
                     currentUserConfirmStatusLabel.setForeground(Theme.ACCENT_ALT);
                 } else {
@@ -312,13 +366,65 @@ public class TradeDetailPage extends JPanel {
                     partnerConfirmStatusLabel.setForeground(Theme.MUTED);
                 }
 
+                if (!tradeComplete) {
+                    setAbortButtonActive();
+                }
+
                 rebuildPartnerCards(partnerOffer);
                 rebuildMyOffers(myOffer);
+                applyTradeInteractionState();
 
                 revalidate();
                 repaint();
             });
         }).start();
+    }
+
+    private void handleRefresh() {
+        if (currentTradeId == null || refreshOnCooldown) {
+            return;
+        }
+        startRefreshCooldown();
+        loadTradeDetail(currentTradeId);
+    }
+
+    private void startRefreshCooldown() {
+        refreshOnCooldown = true;
+        refreshButton.setEnabled(false);
+        if (refreshCooldownTimer != null) {
+            refreshCooldownTimer.stop();
+        }
+        refreshCooldownTimer = new Timer(REFRESH_COOLDOWN_MS, e -> {
+            refreshOnCooldown = false;
+            updateRefreshButtonState();
+        });
+        refreshCooldownTimer.setRepeats(false);
+        refreshCooldownTimer.start();
+    }
+
+    private void updateRefreshButtonState() {
+        refreshButton.setEnabled(!tradeComplete && !refreshOnCooldown);
+        refreshButton.setText("Refresh");
+    }
+
+    private boolean cardMutationsEnabled() {
+        return !tradeComplete && !anyoneConfirmed;
+    }
+
+    private void applyTradeInteractionState() {
+        setEnabledDeep(cardSearchPanel, !tradeComplete);
+        updateRefreshButtonState();
+        relayoutMyOffersGrid();
+    }
+
+    private static void setEnabledDeep(Container container, boolean enabled) {
+        container.setEnabled(enabled);
+        for (Component child : container.getComponents()) {
+            child.setEnabled(enabled);
+            if (child instanceof Container) {
+                setEnabledDeep((Container) child, enabled);
+            }
+        }
     }
 
     private void refreshOfferPanels() {
@@ -340,7 +446,7 @@ public class TradeDetailPage extends JPanel {
     }
 
     private void onSearchCardClick(int cardId) {
-        if (currentTradeId == null) {
+        if (currentTradeId == null || !cardMutationsEnabled()) {
             return;
         }
         new Thread(() -> {
@@ -456,10 +562,12 @@ public class TradeDetailPage extends JPanel {
         if (allowMutations) {
             right.add(Box.createVerticalStrut(8));
             JButton addBtn = UiFactory.primaryButton("Add 1");
+            addBtn.setEnabled(cardMutationsEnabled());
             addBtn.addActionListener(e -> handleIncrementOffer(card));
             right.add(addBtn);
             right.add(Box.createVerticalStrut(8));
             JButton removeBtn = UiFactory.dangerButton("Remove 1");
+            removeBtn.setEnabled(cardMutationsEnabled());
             removeBtn.addActionListener(e -> handleDecrementOffer(card));
             right.add(removeBtn);
         }
@@ -471,7 +579,7 @@ public class TradeDetailPage extends JPanel {
     }
 
     private void handleIncrementOffer(Card card) {
-        if (currentTradeId == null) {
+        if (currentTradeId == null || !cardMutationsEnabled()) {
             return;
         }
         new Thread(() -> {
@@ -483,7 +591,7 @@ public class TradeDetailPage extends JPanel {
     }
 
     private void handleDecrementOffer(Card card) {
-        if (currentTradeId == null) {
+        if (currentTradeId == null || !cardMutationsEnabled()) {
             return;
         }
         if (card.getQuantity() <= 1) {
@@ -574,20 +682,15 @@ public class TradeDetailPage extends JPanel {
 
             SwingUtilities.invokeLater(() -> {
                 if (success) {
-                    confirmButton.setEnabled(false);
-                    confirmButton.setText("Confirmed");
-                    confirmButton.setBackground(new Color(60, 70, 100));
-                    confirmButton.setForeground(Theme.MUTED);
-                    currentUserConfirmStatusLabel.setText("You have confirmed this trade");
-                    currentUserConfirmStatusLabel.setForeground(Theme.ACCENT_ALT);
+                    loadTradeDetail(currentTradeId);
                 } else {
                     confirmButton.setEnabled(true);
                     confirmButton.setText("Confirm Trade");
                     confirmButton.setBackground(Theme.ACCENT);
                     confirmButton.setForeground(Color.WHITE);
+                    revalidate();
+                    repaint();
                 }
-                revalidate();
-                repaint();
             });
         }).start();
     }
@@ -605,17 +708,29 @@ public class TradeDetailPage extends JPanel {
                 if (success) {
                     abortButton.setEnabled(false);
                     abortButton.setText("Trade Aborted");
-                    abortButton.setBackground(new Color(60, 70, 100));
+                    abortButton.setBackground(ABORT_BTN_DISABLED_BG);
                     abortButton.setForeground(Theme.MUTED);
                     confirmButton.setEnabled(false);
+                    if (backAction != null) {
+                        backAction.run();
+                    }
                 } else {
-                    abortButton.setEnabled(true);
-                    abortButton.setText("Abort Trade");
+                    setAbortButtonActive();
                 }
                 revalidate();
                 repaint();
             });
         }).start();
+    }
+
+    private void setAbortButtonActive() {
+        abortButton.setEnabled(true);
+        abortButton.setText("Abort Trade");
+        abortButton.setBackground(ABORT_BTN_BG);
+        abortButton.setForeground(ABORT_BTN_FG);
+        abortButton.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Theme.DANGER),
+                new EmptyBorder(8, 12, 8, 12)));
     }
 
     public void setBackAction(Runnable action) {
@@ -677,6 +792,7 @@ public class TradeDetailPage extends JPanel {
 
         senderUsernameLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
         receiverUsernameLabel.setFont(Theme.FONT_BOLD.deriveFont(value));
+        tradeCompletedLabel.setFont(Theme.FONT_BOLD.deriveFont(base));
         partnerConfirmStatusLabel.setFont(Theme.FONT.deriveFont(base));
         currentUserConfirmStatusLabel.setFont(Theme.FONT_BOLD.deriveFont(base));
 
