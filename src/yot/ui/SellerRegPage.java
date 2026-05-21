@@ -277,10 +277,6 @@ public class SellerRegPage extends JPanel {
 			JOptionPane.showMessageDialog(null, "Invalid username or password.");
 		}
     }
-    
-    public String getUsername() {
-    	return SellerRegPage.username;
-    }
 
     private static void installZipFilter(JTextField field) {
     	((AbstractDocument) field.getDocument()).setDocumentFilter(new DocumentFilter() {

@@ -118,8 +118,4 @@ public class LandingPage extends JPanel {
 			JOptionPane.showMessageDialog(null, "Invalid username.");
 		}
     }
-    
-    public String getUsername() {
-    	return LandingPage.username;
-    }
 }

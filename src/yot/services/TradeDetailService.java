@@ -44,30 +44,6 @@ public class TradeDetailService {
 		}
 	}
 	
-	public Map<String, String> getTradeConfirmInfo(int tradeID){
-		Map<String, String> map = new HashMap<String,String>();
-		Connection con = dbService.getConnection();
-		CallableStatement cs = null;
-		String query = "{Call GetTradeInfo(?)}";
-		
-		try {
-			cs = con.prepareCall(query);
-			cs.setInt(1, tradeID);
-			ResultSet rs = cs.executeQuery();
-			if (rs.next()) {
-				map.put("ID", rs.getString("ID"));
-				map.put("IsComplete", rs.getString("IsComplete"));
-				map.put("SenderConfirmed", rs.getString("SenderConfirmed"));
-				map.put("ReceiverConfirmed", rs.getString("ReceiverConfirmed"));
-				map.put("DateCreated", rs.getString("DateCreated"));
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-			JOptionPane.showMessageDialog(null, e.getMessage());
-		}
-		return map;
-	}
-	
 	public Map<String, String> getAllTradeInfo(int tradeID){ 
 		Map<String, String> map = new HashMap<String,String>();
 		Connection con = dbService.getConnection();

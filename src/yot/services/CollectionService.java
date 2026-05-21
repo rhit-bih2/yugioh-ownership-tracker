@@ -126,37 +126,6 @@ public class CollectionService {
 		}
 
 	}
-	
-	private ArrayList<String> parseResultsString(ResultSet rs) {
-		try {
-			ArrayList<String> cardNames = new ArrayList<String>();
-			while (rs.next()) {
-				cardNames.add(rs.getString("Name"));
-			}
-
-			return cardNames;
-		} catch (SQLException ex) {
-			JOptionPane.showMessageDialog(null,
-					"An error ocurred. See printed stack trace.");
-			ex.printStackTrace();
-			return new ArrayList<String>();
-		}
-
-	}
-	
-	public ArrayList<String> getCollectionCards(int collectionID) {
-		try {
-			CallableStatement stmt = dbService.getConnection().prepareCall("{call GetCollectionCards(?)}");
-			stmt.setInt(1, collectionID);
-			ResultSet rs = stmt.executeQuery();
-			return parseResultsString(rs);
-		}
-		catch (SQLException ex) {
-			JOptionPane.showMessageDialog(null, "Failed to retrieve collection cards");
-			ex.printStackTrace();
-			return new ArrayList<String>();
-		}
-	}
 
 	public ArrayList<CollectionCard> getCollectionCardEntries(int collectionID) {
 		try {
