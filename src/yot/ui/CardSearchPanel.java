@@ -24,6 +24,10 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 
 import yot.services.CardSearchService;
 import yot.services.DatabaseConnectionService;
@@ -113,12 +117,15 @@ public class CardSearchPanel extends JPanel {
         row2.setAlignmentX(LEFT_ALIGNMENT);
         row2.add(Box.createHorizontalStrut(8));
         JTextField atkInput = UiFactory.input("");
+        installSignedIntegerFilter(atkInput);
         row2.add(createValueFilter("ATK", atkInput));
         row2.add(Box.createHorizontalStrut(8));
         JTextField defInput = UiFactory.input("");
+        installSignedIntegerFilter(defInput);
         row2.add(createValueFilter("DEF", defInput));
         row2.add(Box.createHorizontalStrut(8));
         JTextField levelInput = UiFactory.input("");
+        installSignedIntegerFilter(levelInput);
         row2.add(createValueFilter("Level", levelInput));
         row2.add(Box.createHorizontalStrut(8));
         advancedFilters.add(row2);
@@ -343,6 +350,53 @@ public class CardSearchPanel extends JPanel {
     	// Update button states
     	prevButton.setEnabled(currentPage > 0);
     	nextButton.setEnabled(currentPage < totalPages - 1);
+    }
+
+    private static void installSignedIntegerFilter(JTextField field) {
+    	((AbstractDocument) field.getDocument()).setDocumentFilter(new DocumentFilter() {
+    		@Override
+    		public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+    			replace(fb, offset, 0, string, attr);
+    		}
+
+    		@Override
+    		public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+    			if (text == null) {
+    				text = "";
+    			}
+    			int docLen = fb.getDocument().getLength();
+    			String current = docLen == 0 ? "" : fb.getDocument().getText(0, docLen);
+    			StringBuilder merged = new StringBuilder();
+    			for (int i = 0; i < current.length(); i++) {
+    				if (i < offset) {
+    					merged.append(current.charAt(i));
+    				}
+    			}
+    			merged.append(text);
+    			for (int i = offset + length; i < current.length(); i++) {
+    				merged.append(current.charAt(i));
+    			}
+    			String sanitized = sanitizeSignedInteger(merged.toString());
+    			fb.replace(0, docLen, sanitized, attrs);
+    		}
+    	});
+    }
+
+    private static String sanitizeSignedInteger(String raw) {
+    	boolean negative = false;
+    	StringBuilder digits = new StringBuilder();
+    	for (int i = 0; i < raw.length(); i++) {
+    		char c = raw.charAt(i);
+    		if (c == '-' && digits.length() == 0 && !negative) {
+    			negative = true;
+    		} else if (Character.isDigit(c)) {
+    			digits.append(c);
+    		}
+    	}
+    	if (negative) {
+    		return "-" + digits;
+    	}
+    	return digits.toString();
     }
     
 }
