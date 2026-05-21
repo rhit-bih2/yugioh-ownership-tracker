@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.swing.JOptionPane;
+
 import yot.services.TradeService.TradeRequest;
 
 public class TradeDetailService {
@@ -61,6 +63,7 @@ public class TradeDetailService {
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
+			JOptionPane.showMessageDialog(null, e.getMessage());
 		}
 		return map;
 	}
@@ -86,6 +89,9 @@ public class TradeDetailService {
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
+			if(e.getMessage().contains("Invalid TradeInfoID")) {
+				JOptionPane.showMessageDialog(null, "Trade does not exist");
+			}
 		}
 		return map;
 	}
@@ -109,6 +115,9 @@ public class TradeDetailService {
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
+			if(e.getMessage().contains("Invalid TradeInfoID")) {
+				JOptionPane.showMessageDialog(null, "Trade aborted by the other user.");
+			}
 		}
 		return list;
 	}
@@ -127,6 +136,11 @@ public class TradeDetailService {
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
+			if(e.getMessage().contains("Invalid TradeInfoID")) {
+				JOptionPane.showMessageDialog(null, "Trade aborted by the other user.");
+				return false;
+			}
+			JOptionPane.showMessageDialog(null, e.getMessage());
 			return false;
 		}
 	}
@@ -145,6 +159,11 @@ public class TradeDetailService {
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
+			if(e.getMessage().contains("Invalid TradeInfoID")) {
+				JOptionPane.showMessageDialog(null, "Trade aborted by the other user.");
+				return false;
+			}
+			JOptionPane.showMessageDialog(null, e.getMessage());
 			return false;
 		}
 	}
@@ -163,6 +182,11 @@ public class TradeDetailService {
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
+			if(e.getMessage().contains("Invalid TradeInfoID")) {
+				JOptionPane.showMessageDialog(null, "Trade aborted by the other user.");
+				return false;
+			}
+			JOptionPane.showMessageDialog(null, e.getMessage());
 			return false;
 		}
 	}
@@ -181,6 +205,11 @@ public class TradeDetailService {
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
+			if(e.getMessage().contains("Invalid TradeInfoID")) {
+				JOptionPane.showMessageDialog(null, "Trade aborted by the other user.");
+				return false;
+			}
+			JOptionPane.showMessageDialog(null, e.getMessage());
 			return false;
 		}
 	}
@@ -200,6 +229,7 @@ public class TradeDetailService {
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
+			JOptionPane.showMessageDialog(null, e.getMessage());
 		}
 		return imageURL;
 	}
@@ -217,6 +247,11 @@ public class TradeDetailService {
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
+			if(e.getMessage().contains("Invalid TradeInfoID")) {
+				JOptionPane.showMessageDialog(null, "Trade aborted by the other user.");
+				return false;
+			}
+			JOptionPane.showMessageDialog(null, e.getMessage());
 			return false;
 		}
 	}
@@ -233,6 +268,11 @@ public class TradeDetailService {
 			return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
+			if(e.getMessage().contains("Invalid TradeInfoID")) {
+				JOptionPane.showMessageDialog(null, "Trade aborted by the other user.");
+				return false;
+			}
+			JOptionPane.showMessageDialog(null, e.getMessage());
 			return false;
 		}
 	}

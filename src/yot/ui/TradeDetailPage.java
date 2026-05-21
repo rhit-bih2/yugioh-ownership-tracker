@@ -698,6 +698,16 @@ public class TradeDetailPage extends JPanel {
     private void handleAbortTrade() {
         if (currentTradeId == null || currentUsername == null) return;
 
+        int choice = JOptionPane.showConfirmDialog(
+                this,
+                "Abort this trade? This cannot be undone.",
+                "Abort Trade",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
+
         abortButton.setEnabled(false);
         abortButton.setText("Aborting…");
 
